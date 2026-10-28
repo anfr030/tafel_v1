@@ -98,6 +98,7 @@ button, input, textarea, select { font: inherit; color: inherit; }
 }
 .b-note span { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .b-note svg { flex: none; width: 1.1em; height: 1.1em; margin-top: 0.05em; }
+.b-pause { font-size: 0.78em; color: var(--muted); padding: 0.1em 0 0.2em; }
 .rows { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; min-height: 0; }
 .row > .c + .c { padding-left: 0.65em; }
 .row { display: contents; }
@@ -390,7 +391,7 @@ function buildBoards() {
   state.boards = cfg.boards.map((b, i) => {
     const el = document.createElement("article");
     el.className = "board";
-    el.innerHTML = '<div class="b-head"><div class="b-title"></div><div class="b-meta"></div></div><div class="b-note" hidden></div><div class="rows"></div>';
+    el.innerHTML = '<div class="b-head"><div class="b-title"></div><div class="b-meta"></div></div><div class="b-note" hidden></div><div class="b-pause" hidden></div><div class="rows"></div>';
     host.appendChild(el);
     return { cfg: b, idx: i, el, deps: [], lastOk: 0, error: null, notes: [], nextAt: 0 };
   });
@@ -413,34 +414,47 @@ async function resolveStop(ref, products) {
   return ref.id;
 }
 
+function mapDeps(list, want) {
+  return list
+    .filter((d) => d && d.line && (!want.length || want.indexOf(normLine(d.line.name)) >= 0))
+    .map((d) => ({
+      line: d.line,
+      dest: cleanDest(d.direction || (d.destination && d.destination.name)),
+      t: new Date(d.when || d.plannedWhen),
+      planned: d.plannedWhen ? new Date(d.plannedWhen) : null,
+      delay: typeof d.delay === "number" ? d.delay : null,
+      cancelled: !!d.cancelled,
+      remarks: (d.remarks || []).filter((r) => r && r.type === "warning").map((r) => r.summary || r.text).filter(Boolean)
+    }))
+    .filter((d) => !isNaN(d.t))
+    .sort((a, b2) => a.t - b2.t);
+}
+
+async function fetchDeps(b, stopId, viaId, duration, results) {
+  let url = cfg.api + "/stops/" + encodeURIComponent(stopId) + "/departures?duration=" + duration + "&results=" + results + "&remarks=true&language=de&linesOfStops=false";
+  const prods = b.products && b.products.length ? b.products : null;
+  if (prods) PRODUCTS.forEach(([p]) => { url += "&" + p + "=" + (prods.indexOf(p) >= 0); });
+  if (viaId) url += "&direction=" + encodeURIComponent(viaId);
+  const data = await getJSON(url);
+  const list = Array.isArray(data) ? data : (data && data.departures) || [];
+  return mapDeps(list, parseLines(b.lines));
+}
+
 async function loadBoard(bs) {
   const b = bs.cfg;
   try {
     const stopId = await resolveStop(b.stop, b.products);
     const viaId = b.via ? await resolveStop(b.via, null) : null;
-    let url = cfg.api + "/stops/" + encodeURIComponent(stopId) + "/departures?duration=60&results=40&remarks=true&language=de&linesOfStops=false";
-    const prods = b.products && b.products.length ? b.products : null;
-    if (prods) PRODUCTS.forEach(([p]) => { url += "&" + p + "=" + (prods.indexOf(p) >= 0); });
-    if (viaId) url += "&direction=" + encodeURIComponent(viaId);
-    const data = await getJSON(url);
-    const list = Array.isArray(data) ? data : (data && data.departures) || [];
-    const want = parseLines(b.lines);
-    bs.deps = list
-      .filter((d) => d && d.line && (!want.length || want.indexOf(normLine(d.line.name)) >= 0))
-      .map((d) => ({
-        line: d.line,
-        dest: cleanDest(d.direction || (d.destination && d.destination.name)),
-        t: new Date(d.when || d.plannedWhen),
-        planned: d.plannedWhen ? new Date(d.plannedWhen) : null,
-        delay: typeof d.delay === "number" ? d.delay : null,
-        cancelled: !!d.cancelled,
-        remarks: (d.remarks || []).filter((r) => r && r.type === "warning").map((r) => r.summary || r.text).filter(Boolean)
-      }))
-      .filter((d) => !isNaN(d.t))
-      .sort((a, b2) => a.t - b2.t);
+    bs.deps = await fetchDeps(b, stopId, viaId, 60, 40);
     const seen = new Set();
     bs.notes = [];
     bs.deps.forEach((d) => d.remarks.forEach((r) => { const k = r.slice(0, 80); if (!seen.has(k)) { seen.add(k); bs.notes.push(r); } }));
+    // Nichts in der nächsten Stunde (z. B. nächtliche Betriebspause): bis zu 6 Std. vorausschauen, höchstens alle 10 Min.
+    const hasSoon = bs.deps.some((d) => d.t.getTime() > Date.now() - 30000);
+    if (hasSoon) bs.ahead = null;
+    else if (!bs.ahead || Date.now() - bs.aheadAt > 10 * 60000) {
+      try { bs.ahead = await fetchDeps(b, stopId, viaId, 360, 80); bs.aheadAt = Date.now(); } catch (e) {}
+    }
     bs.lastOk = Date.now();
     bs.error = null;
     bs.nextAt = Date.now() + 30000;
@@ -467,13 +481,25 @@ function renderBoard(bs) {
   } else note.hidden = true;
 
   const rows = el.querySelector(".rows");
-  const deps = bs.deps.filter((d) => d.t.getTime() > now - 30000).slice(0, Math.max(1, Number(b.count) || 6));
+  const pause = el.querySelector(".b-pause");
+  const limit = Math.max(1, Number(b.count) || 6);
+  let deps = bs.deps.filter((d) => d.t.getTime() > now - 30000).slice(0, limit);
+  pause.hidden = true;
+  if (!deps.length && bs.lastOk && bs.ahead) {
+    deps = bs.ahead.filter((d) => d.t.getTime() > now - 30000).slice(0, limit);
+    const first = deps.find((d) => !d.cancelled);
+    pause.hidden = false;
+    pause.textContent = first
+      ? "Nächste Stunde keine Fahrten · erste um " + hm(first.t)
+      : "Keine Fahrten in den nächsten 6 Stunden.";
+  }
   if (!deps.length) {
     let msg;
     if (bs.error && !bs.lastOk) msg = bs.error.message && bs.error.message.indexOf("nicht gefunden") >= 0
       ? esc(bs.error.message) + ". Bitte in den Einstellungen prüfen."
       : "Keine Verbindung zur Fahrplanauskunft. Neuer Versuch läuft automatisch.";
     else if (!bs.lastOk) msg = "Abfahrten werden geladen …";
+    else if (!pause.hidden) { rows.innerHTML = ""; return; }
     else msg = "Keine Abfahrten in den nächsten 60 Minuten.";
     rows.innerHTML = '<div class="empty">' + msg + "</div>";
     return;
@@ -489,7 +515,8 @@ function renderBoard(bs) {
     else {
       if (!nextMarked) { cls.push("next"); nextMarked = true; }
       if (leave === 0) { cls.push("now"); go = "jetzt los"; }
-      else go = "los in " + leave + " Min";
+      else if (leave < 60) go = "los in " + leave + " Min";
+      else go = "los um " + hm(new Date(d.t.getTime() - walk * 60000));
     }
     if (d.delay === null && !d.cancelled) cls.push("plan");
     const t = d.cancelled && d.planned ? d.planned : d.t;
