@@ -92,6 +92,8 @@ button, input, textarea, select { font: inherit; color: inherit; }
 .b-title { font-weight: 680; font-size: 1.05em; font-stretch: 92%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .b-meta { color: var(--muted); font-size: 0.72em; white-space: nowrap; letter-spacing: 0.02em; }
 .b-meta .stale { color: var(--late); font-weight: 600; }
+.b-meta .mi { display: inline-flex; align-items: center; gap: 0.2em; margin-left: 0.5em; }
+.b-meta .mi svg { width: 1.15em; height: 1.15em; }
 .b-note {
   display: flex; gap: 0.4em; align-items: flex-start;
   font-size: 0.72em; color: var(--warn-fg); background: var(--warn-bg);
@@ -125,6 +127,13 @@ button, input, textarea, select { font: inherit; color: inherit; }
 .row.plan .time { font-style: italic; font-weight: 500; }
 .row.cancel .dest, .row.cancel .time { text-decoration: line-through; }
 .row.cancel .go { color: var(--late); font-weight: 650; }
+.go.two { flex-direction: column; align-items: flex-end; justify-content: center; gap: 0.15em; font-size: 0.72em; line-height: 1.1; }
+.go .m { display: flex; align-items: center; gap: 0.3em; color: var(--muted); font-weight: 500; text-transform: none; letter-spacing: 0; }
+.go .m svg { width: 1.1em; height: 1.1em; flex: none; }
+.go .m.off { color: var(--faint); }
+.go .m.hot { color: var(--accent); font-weight: 720; }
+.go .m.now { color: var(--accent); font-weight: 800; text-transform: uppercase; letter-spacing: 0.03em; }
+.row.next .go.two { color: var(--muted); font-weight: 500; }
 .empty { grid-column: 1 / -1; color: var(--muted); font-size: 0.85em; padding: 0.6em 0; }
 
 /* Wetterspalte */
@@ -383,6 +392,8 @@ if (mq && mq.addEventListener) mq.addEventListener("change", applyTheme);
 
 /* ---------- Abfahrten ---------- */
 const state = { boards: [] };
+const WALK_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="13" cy="4" r="2"/><path d="M12 7.5 10.5 14l-3 7M10.5 14l3.5 3 1 4M11.5 9.5 8 12M12 8.5l3.5 3"/></svg>';
+const BIKE_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5.5" cy="16.5" r="3.5"/><circle cx="18.5" cy="16.5" r="3.5"/><path d="M5.5 16.5 9 9h7l2.5 7.5M9 9l3.5 7.5h-7M8 6h3M15 6.5h2.5L16 9"/></svg>';
 const NOTE_ICON = '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M10 2.8 18 17H2z"/><path d="M10 8v4M10 14.4v.2" stroke-linecap="round"/></svg>';
 
 function buildBoards() {
@@ -483,7 +494,10 @@ function renderBoard(bs) {
   const b = bs.cfg, el = bs.el, now = Date.now();
   el.querySelector(".b-title").textContent = b.title || (b.stop && b.stop.name) || "Tafel";
   const walk = Math.max(0, Number(b.walk) || 0);
-  let meta = walk ? walk + " Min. Fußweg" : "";
+  const bike = b.bike === "" || b.bike === null || b.bike === undefined || isNaN(Number(b.bike)) ? null : Math.max(0, Number(b.bike));
+  let meta = bike !== null
+    ? '<span class="mi" title="zu Fuß">' + WALK_ICON + walk + '</span><span class="mi" title="mit dem Rad">' + BIKE_ICON + bike + " Min.</span>"
+    : (walk ? walk + " Min. Fußweg" : "");
   const stale = bs.lastOk && now - bs.lastOk > 120000;
   if (stale) meta = '<span class="stale">Stand ' + hm(new Date(bs.lastOk)) + "</span>" + (meta ? " · " + meta : "");
   el.querySelector(".b-meta").innerHTML = meta;
@@ -526,12 +540,31 @@ function renderBoard(bs) {
     return;
   }
   let nextMarked = false;
+  const hot = { walk: false, bike: false };
+  const goText = (leave, d, m) => leave < 0 ? "zu knapp" : leave === 0 ? "jetzt los" : leave < 60 ? "los in " + leave + " Min" : "los um " + hm(new Date(d.t.getTime() - m * 60000));
   rows.innerHTML = deps.map((d) => {
     const mins = Math.floor((d.t.getTime() - now) / 60000);
     const leave = mins - walk;
     const cls = ["row"];
-    let go;
+    let go, goCls = "";
     if (d.cancelled) { cls.push("cancel"); go = "fällt aus"; }
+    else if (bike !== null) {
+      // Zwei Optionen: zu Fuß und mit dem Rad, jeweils mit eigener Hervorhebung der ersten erreichbaren Fahrt
+      const opts = [["walk", walk, WALK_ICON, "zu Fuß"], ["bike", bike, BIKE_ICON, "mit dem Rad"]].map(([k, m, ic, label]) => {
+        const lv = mins - m;
+        const mc = ["m"];
+        if (lv < 0) mc.push("off");
+        else if (lv === 0) mc.push("now");
+        if (lv >= 0 && !hot[k]) { mc.push("hot"); hot[k] = true; }
+        return { ok: lv >= 0, html: '<span class="' + mc.join(" ") + '" aria-label="' + label + '">' + ic + goText(lv, d, m) + "</span>" };
+      });
+      if (!opts.some((o) => o.ok)) { cls.push("gone"); go = "zu knapp"; }
+      else {
+        if (!nextMarked) { cls.push("next"); nextMarked = true; }
+        go = opts.map((o) => o.html).join("");
+        goCls = " two";
+      }
+    }
     else if (leave < 0) { cls.push("gone"); go = "zu knapp"; }
     else {
       if (!nextMarked) { cls.push("next"); nextMarked = true; }
@@ -552,7 +585,7 @@ function renderBoard(bs) {
       '<span class="c"><span class="badge' + prod + '" style="' + badgeStyle(d.line) + '">' + esc(d.line.name) + "</span></span>" +
       '<span class="c"><span class="dest">' + esc(cleanDestFor(d.dest, d.line.name)) + "</span></span>" +
       '<span class="c r time">' + hm(t) + dl + "</span>" +
-      '<span class="c r go">' + go + "</span></div>";
+      '<span class="c r go' + goCls + '">' + go + "</span></div>";
   }).join("");
   while (el.scrollHeight > el.clientHeight + 1 && rows.children.length > 2) rows.removeChild(rows.lastElementChild);
 }
@@ -855,6 +888,7 @@ function edHtml(b, i, n) {
     '<div class="grid2">' +
     '<label class="fld"><span>Linien (leer = alle)</span><input type="text" id="l-' + i + '" data-i="' + i + '" data-k="lines" value="' + esc(b.lines) + '" placeholder="S3, S5, S7"></label>' +
     '<label class="fld"><span>Fußweg zur Haltestelle (Min.)</span><input type="number" min="0" max="60" inputmode="numeric" id="w-' + i + '" data-i="' + i + '" data-k="walk" value="' + esc(b.walk) + '"></label>' +
+    '<label class="fld"><span>Mit dem Rad (Min., optional)</span><input type="number" min="0" max="60" inputmode="numeric" id="bk-' + i + '" data-i="' + i + '" data-k="bike" value="' + esc(b.bike == null ? "" : b.bike) + '" placeholder="leer = nur zu Fuß"></label>' +
     '<label class="fld"><span>Anzahl Abfahrten</span><input type="number" min="1" max="12" inputmode="numeric" id="c-' + i + '" data-i="' + i + '" data-k="count" value="' + esc(b.count) + '"></label>' +
     "</div>" +
     '<div class="fld"><span>Verkehrsmittel</span><div class="chk">' + prods + "</div></div></div>";
@@ -897,7 +931,7 @@ sheet.addEventListener("input", (ev) => {
       b.products = (b.products || []).filter((x) => x !== p);
       if (t.checked) b.products.push(p);
       if (b.stop) b.stop.id = b.stop.id; // Haltestelle bleibt
-    } else if (k === "walk" || k === "count") b[k] = t.value === "" ? "" : Number(t.value);
+    } else if (k === "walk" || k === "count" || k === "bike") b[k] = t.value === "" ? "" : Number(t.value);
     else b[k] = t.value;
   } else if (k === "nightDim") draft.nightDim = t.checked;
   else if (k === "api") draft.api = t.value.trim().replace(/\/+$/, "");
@@ -915,7 +949,11 @@ sheet.addEventListener("click", async (ev) => {
     const lat = parseFloat(String(draft.place.lat).replace(",", ".")), lon = parseFloat(String(draft.place.lon).replace(",", "."));
     if (!(lat > 47 && lat < 56 && lon > 5 && lon < 16)) { renderSheet("Breiten- und Längengrad passen nicht zu Deutschland. Beispiel: 52.5106 und 13.4545."); return; }
     draft.place.lat = lat; draft.place.lon = lon;
-    B.forEach((b) => { b.walk = Math.max(0, Math.min(60, Number(b.walk) || 0)); b.count = Math.max(1, Math.min(12, Number(b.count) || 6)); });
+    B.forEach((b) => {
+      b.walk = Math.max(0, Math.min(60, Number(b.walk) || 0));
+      b.bike = b.bike === "" || b.bike == null || isNaN(Number(b.bike)) ? "" : Math.max(0, Math.min(60, Number(b.bike)));
+      b.count = Math.max(1, Math.min(12, Number(b.count) || 6));
+    });
     const missing = B.findIndex((b) => !b.stop);
     if (missing >= 0) { renderSheet("Tafel " + (missing + 1) + " hat noch keine Haltestelle."); return; }
     cfg = draft; saveConfig(cfg); closeSheet();
