@@ -419,6 +419,7 @@ function mapDeps(list, want) {
   return list
     .filter((d) => d && d.line && (!want.length || want.indexOf(normLine(d.line.name)) >= 0))
     .map((d) => ({
+      key: (d.tripId || "") + "|" + (d.plannedWhen || d.when || ""),
       line: d.line,
       dest: cleanDest(d.direction || (d.destination && d.destination.name)),
       t: new Date(d.when || d.plannedWhen),
@@ -447,12 +448,15 @@ async function loadBoard(bs) {
     const stopId = await resolveStop(b.stop, b.products);
     const viaId = b.via ? await resolveStop(b.via, null) : null;
     bs.deps = await fetchDeps(b, stopId, viaId, 60, 40);
+    bs.depsAt = Date.now();
     const seen = new Set();
     bs.notes = [];
     bs.deps.forEach((d) => d.remarks.forEach((r) => { const k = r.slice(0, 80); if (!seen.has(k)) { seen.add(k); bs.notes.push(r); } }));
-    // Nichts in der nächsten Stunde (z. B. nächtliche Betriebspause): bis zu 6 Std. vorausschauen, höchstens alle 10 Min.
-    const hasSoon = bs.deps.some((d) => d.t.getTime() > Date.now() - 30000);
-    if (hasSoon) bs.ahead = null;
+    // Weniger Fahrten in der nächsten Stunde als eingestellt (z. B. Nachttakt oder Betriebspause):
+    // bis zu 6 Std. vorausschauen, höchstens alle 10 Min.
+    const limit = Math.max(1, Number(b.count) || 6);
+    const soon = bs.deps.filter((d) => d.t.getTime() > Date.now() - 30000).length;
+    if (soon >= limit) bs.ahead = null;
     else if (!bs.ahead || Date.now() - bs.aheadAt > 10 * 60000) {
       try { bs.ahead = await fetchDeps(b, stopId, viaId, 360, 80); bs.aheadAt = Date.now(); } catch (e) {}
     }
@@ -484,10 +488,17 @@ function renderBoard(bs) {
   const rows = el.querySelector(".rows");
   const pause = el.querySelector(".b-pause");
   const limit = Math.max(1, Number(b.count) || 6);
-  let deps = bs.deps.filter((d) => d.t.getTime() > now - 30000).slice(0, limit);
+  const fresh = bs.deps.filter((d) => d.t.getTime() > now - 30000);
+  let deps = fresh.slice(0, limit);
   pause.hidden = true;
-  if (!deps.length && bs.lastOk && bs.ahead) {
-    deps = bs.ahead.filter((d) => d.t.getTime() > now - 30000).slice(0, limit);
+  if (deps.length < limit && bs.lastOk && bs.ahead) {
+    // Aktuelle Daten zuerst, dahinter Fahrten aus der Vorausschau, die nach dem 60-Min.-Fenster liegen
+    const keys = new Set(fresh.map((d) => d.key));
+    const windowEnd = (bs.depsAt || now) + 60 * 60000;
+    const later = bs.ahead.filter((d) => !keys.has(d.key) && d.t.getTime() > now - 30000 && (d.planned || d.t).getTime() >= windowEnd);
+    deps = fresh.concat(later).slice(0, limit);
+  }
+  if (!fresh.length && bs.lastOk && bs.ahead) {
     const first = deps.find((d) => !d.cancelled);
     pause.hidden = false;
     pause.textContent = first
