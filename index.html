@@ -415,11 +415,12 @@ async function resolveStop(ref, products) {
   return ref.id;
 }
 
-function mapDeps(list, want) {
+function mapDeps(list, want, stopId) {
   return list
     .filter((d) => d && d.line && (!want.length || want.indexOf(normLine(d.line.name)) >= 0))
     .map((d) => ({
-      key: (d.tripId || "") + "|" + (d.plannedWhen || d.when || ""),
+      key: d.tripId || [d.line.name, d.plannedWhen || d.when, d.direction].join("|"),
+      at: String(d.stop && (d.stop.id || (d.stop.station && d.stop.station.id)) || ""),
       line: d.line,
       dest: cleanDest(d.direction || (d.destination && d.destination.name)),
       t: new Date(d.when || d.plannedWhen),
@@ -429,7 +430,15 @@ function mapDeps(list, want) {
       remarks: (d.remarks || []).filter((r) => r && r.type === "warning").map((r) => r.summary || r.text).filter(Boolean)
     }))
     .filter((d) => !isNaN(d.t))
-    .sort((a, b2) => a.t - b2.t);
+    .sort((a, b2) => a.t - b2.t)
+    // Dieselbe Fahrt kann mehrfach kommen, wenn die API benachbarte Haltepunkte mitliefert.
+    // Dann zählt die Abfahrt an der gewählten Haltestelle, sonst die erste.
+    .filter((d, i, arr) => {
+      const same = arr.filter((x) => x.key === d.key);
+      if (same.length === 1) return true;
+      const own = same.find((x) => x.at === String(stopId));
+      return own ? own === d : same[0] === d;
+    });
 }
 
 async function fetchDeps(b, stopId, viaId, duration, results) {
@@ -439,7 +448,7 @@ async function fetchDeps(b, stopId, viaId, duration, results) {
   if (viaId) url += "&direction=" + encodeURIComponent(viaId);
   const data = await getJSON(url);
   const list = Array.isArray(data) ? data : (data && data.departures) || [];
-  return mapDeps(list, parseLines(b.lines));
+  return mapDeps(list, parseLines(b.lines), stopId);
 }
 
 async function loadBoard(bs) {
