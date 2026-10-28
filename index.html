@@ -14,7 +14,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..800&display=swap">
 <style>
-/* Layout: Abfahrtstafeln links als 2×2-Raster, Wetterspalte rechts; im Hochformat Wetter oben. Eine Schrift (Archivo) in drei Breiten. */
+/* Layout: Abfahrtstafeln links als 2×2-Raster, Wetterspalte rechts mit Routenkarte im freien Raum; im Hochformat Wetter oben. Eine Schrift (Archivo) in drei Breiten. */
 :root {
   --bg: #E9EEF0;
   --surface: #FFFFFF;
@@ -59,6 +59,7 @@ body {
   -webkit-font-smoothing: antialiased; -webkit-text-size-adjust: 100%;
   overflow: hidden; user-select: none; -webkit-user-select: none;
   font-variant-numeric: tabular-nums;
+  -webkit-tap-highlight-color: transparent;
 }
 button, input, textarea, select { font: inherit; color: inherit; }
 [hidden] { display: none !important; }
@@ -95,11 +96,12 @@ button, input, textarea, select { font: inherit; color: inherit; }
 .b-meta .mi { display: inline-flex; align-items: center; gap: 0.2em; margin-left: 0.5em; }
 .b-meta .mi svg { width: 1.15em; height: 1.15em; }
 .b-note {
-  display: flex; gap: 0.4em; align-items: flex-start;
+  display: flex; gap: 0.4em; align-items: flex-start; cursor: pointer;
   font-size: 0.72em; color: var(--warn-fg); background: var(--warn-bg);
   border-radius: 8px; padding: 0.3em 0.55em;
 }
-.b-note span { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.b-note .tx { flex: 1; min-width: 0; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.b-note .more { flex: none; font-weight: 750; padding-left: 0.3em; }
 .b-note svg { flex: none; width: 1.1em; height: 1.1em; margin-top: 0.05em; }
 .b-pause { font-size: 0.78em; color: var(--muted); padding: 0.1em 0 0.2em; }
 .rows { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; min-height: 0; }
@@ -115,10 +117,12 @@ button, input, textarea, select { font: inherit; color: inherit; }
   filter: brightness(var(--badge-dim));
 }
 .badge.tram { border-radius: 2px; }
+.badge.s { min-width: 2.5em; font-size: 0.8em; padding: 0.1em 0.35em; border-radius: 5px; }
+.badge.s.tram { border-radius: 2px; }
 .dest { display: block; font-stretch: 78%; font-weight: 520; font-size: 1.04em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .time { font-weight: 640; font-size: 1.04em; white-space: nowrap; text-align: right; }
-.time .dl { font-size: 0.72em; font-weight: 700; color: var(--late); margin-left: 0.2em; vertical-align: 0.15em; }
-.time .dl.ok { color: var(--muted); font-weight: 500; }
+.time .dl, .dl { font-size: 0.72em; font-weight: 700; color: var(--late); margin-left: 0.2em; vertical-align: 0.15em; }
+.time .dl.ok, .dl.ok { color: var(--muted); font-weight: 500; }
 .go { text-align: right; font-size: 0.8em; color: var(--muted); white-space: nowrap; }
 .row.next .go { color: var(--accent); font-weight: 720; }
 .row.next .dest { font-weight: 640; }
@@ -135,6 +139,64 @@ button, input, textarea, select { font: inherit; color: inherit; }
 .go .m.now { color: var(--accent); font-weight: 800; text-transform: uppercase; letter-spacing: 0.03em; }
 .row.next .go.two { color: var(--muted); font-weight: 500; }
 .empty { grid-column: 1 / -1; color: var(--muted); font-size: 0.85em; padding: 0.6em 0; }
+
+/* Routen */
+.routes { display: flex; flex-direction: column; gap: 0.45rem; overflow: hidden; }
+.side .routes { flex: 1 1 0; min-height: 7rem; }
+.r-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; min-width: 0; }
+.r-head .b-meta { display: flex; align-items: center; gap: 0.4em; }
+.r-warn {
+  display: inline-flex; align-items: center; gap: 0.25em; border: 0; cursor: pointer;
+  background: var(--warn-bg); color: var(--warn-fg); border-radius: 999px; padding: 0.15em 0.6em; font-size: 1em; font-weight: 750;
+}
+.r-warn svg { width: 1.15em; height: 1.15em; }
+.side.has-routes .clock .hm { font-size: 2.9em; }
+.r-feat { display: flex; flex-direction: column; gap: 0.45rem; flex: none; min-width: 0; }
+.r-list {
+  flex: 1 1 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
+  display: flex; flex-direction: column; border-top: 1px solid var(--line); font-size: 0.88em; min-width: 0;
+}
+.r-list.more { -webkit-mask-image: linear-gradient(#000 calc(100% - 1.6em), transparent); mask-image: linear-gradient(#000 calc(100% - 1.6em), transparent); }
+.r-row {
+  flex: none; height: 2.3em; display: grid; grid-template-columns: minmax(0, max-content) minmax(0, 1fr) auto auto; align-items: center; gap: 0.6em;
+  border: 0; border-bottom: 1px solid var(--line); background: transparent; text-align: left; cursor: pointer; padding: 0 0.2em 0 0.55em; font-size: 1em;
+}
+.r-row:last-child { border-bottom: 0; }
+.r-row .rn { font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.r-row .chain { flex-wrap: nowrap; overflow: hidden; font-size: 0.85em; }
+.r-row .rg { font-weight: 620; white-space: nowrap; justify-self: end; }
+.r-row .ra { color: var(--muted); white-space: nowrap; font-size: 0.92em; }
+.r-row.on { box-shadow: inset 3px 0 0 var(--accent); }
+.r-row.on .rn, .r-row.on .rg { color: var(--accent); }
+.routes { container-type: inline-size; }
+@container (max-width: 26em) { .r-row .chain { display: none; } }
+.r-sub { font-size: 0.72em; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: -0.2em; }
+.jr { border-top: 1px solid var(--line); padding-top: 0.45em; display: flex; flex-direction: column; gap: 0.35em; min-width: 0; }
+.jr.first { border-top: 0; padding-top: 0.1em; }
+.j-top { display: flex; align-items: baseline; gap: 0.55em; min-width: 0; }
+.j-go { font-weight: 740; color: var(--accent); white-space: nowrap; }
+.jr.first .j-go { font-size: 1.12em; }
+.j-tm { font-weight: 640; white-space: nowrap; }
+.j-du { margin-left: auto; color: var(--muted); font-size: 0.74em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.chain { display: flex; align-items: center; flex-wrap: wrap; gap: 0.25em; min-width: 0; font-size: 0.92em; }
+.chain .wk { display: inline-flex; align-items: center; gap: 0.05em; color: var(--muted); font-size: 0.78em; font-weight: 600; }
+.chain .wk svg { width: 1.15em; height: 1.15em; }
+.chain .sep { color: var(--faint); font-size: 0.75em; padding: 0 0.05em; }
+.chain .knapp { color: var(--late); font-size: 0.7em; font-weight: 750; }
+.legs { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0.3em 0.5em; align-items: start; font-size: 0.8em; }
+.legs .lg { min-width: 0; display: flex; flex-direction: column; gap: 0.05em; }
+.legs .l1, .legs .l2 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.legs .l1 { font-weight: 640; }
+.legs .l2 { color: var(--muted); font-stretch: 85%; }
+.legs .x { color: var(--late); font-weight: 700; }
+.legs .tr { grid-column: 2; font-size: 0.9em; color: var(--muted); }
+.legs .tr.tight { color: var(--late); font-weight: 650; }
+.jr.small { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 0.6em; font-size: 0.9em; }
+.jr.small .j-go { font-weight: 650; color: var(--fg); font-size: 0.92em; }
+.jr.small .chain { flex-wrap: nowrap; overflow: hidden; font-size: 0.9em; }
+.jr.cancel .j-tm { text-decoration: line-through; }
+.jr.cancel .j-go { color: var(--late); }
+.jr.gone { opacity: 0.4; }
 
 /* Wetterspalte */
 .side {
@@ -178,13 +240,15 @@ button, input, textarea, select { font: inherit; color: inherit; }
   width: 2.6rem; height: 2.6rem; border-radius: 50%; display: grid; place-items: center; cursor: pointer;
 }
 .gear svg { width: 1.4rem; height: 1.4rem; }
-.gear:focus-visible, .btn:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.gear:focus-visible, .btn:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 /* Hochformat */
 @media (orientation: portrait) {
   .app { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
   .side { order: -1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: stretch; }
-  .side .clock, .side .alerts { grid-column: 1 / -1; }
+  .side .clock, .side .alerts, .side .routes { grid-column: 1 / -1; }
+  .side .routes { height: 14em; min-height: 0; }
+  .side .routes.has-list { height: 18em; }
   .side .foot { grid-column: 1 / -1; margin-top: 0; }
   .clock { display: flex; align-items: baseline; gap: 0.9rem; }
   .clock .hm { font-size: 2.6em; }
@@ -195,55 +259,129 @@ button, input, textarea, select { font: inherit; color: inherit; }
   .app { height: auto; }
   .boards { grid-template-columns: minmax(0, 1fr); grid-auto-rows: auto; }
   .side { grid-template-columns: minmax(0, 1fr); }
+  .side .routes { height: auto; }
 }
+
+/* Meldungen (aufgeklappt) */
+.ov {
+  position: fixed; inset: 0; z-index: 30; background: rgba(5, 8, 10, 0.55);
+  display: grid; place-items: center; padding: 1.2rem;
+}
+.ov-box {
+  background: var(--surface); color: var(--fg); border-radius: 16px; width: 100%; max-width: 680px; max-height: 82vh;
+  overflow-y: auto; padding: 1.1rem 1.25rem 1.3rem; font-size: 17px; line-height: 1.4; user-select: text; -webkit-user-select: text;
+}
+.ov-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 0.4rem; }
+.ov-head h2 { margin: 0; font-size: 1.15rem; font-stretch: 95%; }
+.ov-item { border-top: 1px solid var(--line); padding: 0.75rem 0; display: flex; gap: 0.6rem; }
+.ov-item:first-child { border-top: 0; }
+.ov-item svg { flex: none; width: 1.2em; height: 1.2em; color: var(--warn-fg); margin-top: 0.12em; }
+.ov-item b { display: block; margin-bottom: 0.15em; }
+.ov-hint { font-size: 0.82rem; color: var(--muted); margin-top: 0.6rem; }
 
 /* Einstellungen */
 .sheet {
   position: fixed; inset: 0; z-index: 20; background: var(--bg); overflow-y: auto; user-select: text; -webkit-user-select: text;
-  padding-block: calc(env(safe-area-inset-top, 0px) + 1rem) calc(env(safe-area-inset-bottom, 0px) + 2rem);
+  padding-block: calc(env(safe-area-inset-top, 0px) + 0.6rem) calc(env(safe-area-inset-bottom, 0px) + 2.5rem);
   padding-left: max(16px, env(safe-area-inset-left, 0px));
   padding-right: max(16px, env(safe-area-inset-right, 0px));
-  font-size: 17px;
+  font-size: 17px; line-height: 1.35;
 }
-.sheet-in { max-width: 860px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.1rem; }
-.sheet-bar { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; position: sticky; top: calc(env(safe-area-inset-top, 0px) + 0.4rem); background: var(--bg); padding: 0.4rem 0; z-index: 2; }
-.sheet h1 { font-size: 1.5rem; font-weight: 700; margin: 0; font-stretch: 95%; }
-.sheet h2 { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin: 0 0 0.6rem; }
-.sec { background: var(--surface); border-radius: 14px; padding: 1rem; display: flex; flex-direction: column; gap: 0.8rem; }
-.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.8rem; }
+.sheet-in { max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: 1rem; }
+.sheet-bar {
+  display: flex; justify-content: space-between; align-items: center; gap: 0.8rem;
+  position: sticky; top: env(safe-area-inset-top, 0px); background: var(--bg); padding: 0.6rem 0; z-index: 2;
+  box-shadow: 0 -3rem 0 var(--bg);
+}
+.sheet-bar .l { display: flex; align-items: center; gap: 0.5rem; min-width: 0; }
+.sheet h1 { font-size: 1.45rem; font-weight: 700; margin: 0; font-stretch: 95%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sheet h2 { font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin: 0; font-weight: 700; }
+.tabs { display: flex; gap: 0.25rem; background: var(--surface); padding: 0.3rem; border-radius: 12px; overflow-x: auto; }
+.tab { flex: 1 0 auto; border: 0; background: transparent; padding: 0.55rem 0.8rem; border-radius: 9px; font-weight: 620; color: var(--muted); cursor: pointer; }
+.tab.on { background: var(--fg); color: var(--surface); }
+.sec { background: var(--surface); border-radius: 14px; padding: 1rem; display: flex; flex-direction: column; gap: 0.75rem; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.8rem; }
 .fld { display: flex; flex-direction: column; gap: 0.3rem; min-width: 0; }
 .fld > span { font-size: 0.8rem; color: var(--muted); }
-.fld small { font-size: 0.75rem; color: var(--faint); }
-input[type=text], input[type=number], input[type=search], textarea, select {
-  width: 100%; min-width: 0; padding: 0.55rem 0.7rem; border-radius: 9px;
-  border: 1px solid var(--line); background: var(--bg);
+.hint { font-size: 0.8rem; color: var(--muted); }
+.hint.err { color: var(--late); }
+input[type=text], input[type=number], input[type=search], input[type=time], textarea, select {
+  width: 100%; min-width: 0; padding: 0.6rem 0.75rem; border-radius: 10px;
+  border: 1px solid var(--line); background: var(--bg); -webkit-appearance: none; appearance: none;
 }
+input[type=checkbox] { width: 1.35rem; height: 1.35rem; accent-color: var(--accent); flex: none; margin: 0; }
 textarea { font-family: ui-monospace, Menlo, monospace; font-size: 0.75rem; min-height: 7rem; resize: vertical; }
 .btn {
-  border: 1px solid var(--line); background: var(--surface); border-radius: 9px;
-  padding: 0.5rem 0.85rem; cursor: pointer; white-space: nowrap;
+  border: 1px solid var(--line); background: var(--surface); border-radius: 10px;
+  padding: 0.5rem 0.9rem; cursor: pointer; white-space: nowrap;
 }
 .btn.pri { background: var(--accent); border-color: var(--accent); color: var(--bg); font-weight: 650; }
+.btn.ghost { border-color: transparent; background: transparent; color: var(--accent); font-weight: 620; padding-left: 0.2rem; }
 .btn.danger { color: var(--late); }
 .btn.armed { background: var(--late); border-color: var(--late); color: var(--bg); }
-.btn.sm { padding: 0.3rem 0.6rem; font-size: 0.85rem; }
+.btn.sm { padding: 0.3rem 0.65rem; font-size: 0.85rem; }
+.btn.wide { width: 100%; padding: 0.75rem; font-weight: 620; }
 .btns { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
-.ed { border: 1px solid var(--line); border-radius: 12px; padding: 0.9rem; display: flex; flex-direction: column; gap: 0.8rem; }
-.ed-head { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
-.ed-head input { flex: 1 1 14rem; font-weight: 650; }
-.pick { display: flex; gap: 0.5rem; }
-.pick input { flex: 1; }
-.cur { font-size: 0.85rem; }
-.cur b { font-weight: 650; }
-.cur em { color: var(--faint); font-style: normal; font-size: 0.8em; }
-.res { display: flex; flex-wrap: wrap; gap: 0.4rem; }
-.res .btn { font-size: 0.85rem; }
-.res .p { color: var(--muted); font-size: 0.8em; margin-left: 0.3em; }
-.chk { display: flex; flex-wrap: wrap; gap: 0.4rem 1rem; }
-.chk label { display: flex; gap: 0.35rem; align-items: center; font-size: 0.9rem; }
-.msg { font-size: 0.85rem; color: var(--accent); }
-.radio { display: flex; gap: 0.4rem; flex-wrap: wrap; }
-.radio label { display: flex; align-items: center; gap: 0.3rem; border: 1px solid var(--line); border-radius: 9px; padding: 0.4rem 0.7rem; font-size: 0.9rem; }
+.msg { font-size: 0.9rem; color: var(--severe-fg); background: var(--severe-bg); border-radius: 10px; padding: 0.6rem 0.8rem; }
+.msg.ok { color: var(--warn-fg); background: var(--warn-bg); }
+
+.list { display: flex; flex-direction: column; background: var(--surface); border-radius: 14px; overflow: hidden; }
+.item { display: flex; align-items: center; gap: 0.3rem; border-top: 1px solid var(--line); padding-right: 0.6rem; }
+.item:first-child { border-top: 0; }
+.item-main {
+  flex: 1; min-width: 0; text-align: left; background: transparent; border: 0; cursor: pointer;
+  padding: 0.85rem 0.6rem 0.85rem 1rem; display: flex; align-items: center; gap: 0.6rem;
+}
+.item-main .tx { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.3rem; }
+.it-t { font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.it-s { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem 0.45rem; color: var(--muted); font-size: 0.84rem; }
+.it-s .badge { font-size: 0.74rem; min-width: 2.3em; }
+.chev { color: var(--faint); font-size: 1.3rem; flex: none; }
+.icon-btn {
+  width: 2.3rem; height: 2.3rem; border-radius: 9px; border: 1px solid var(--line); background: var(--surface);
+  cursor: pointer; display: grid; place-items: center; flex: none; color: var(--muted);
+}
+.icon-btn:disabled { opacity: 0.3; cursor: default; }
+.add { border: 1px dashed var(--line); background: transparent; border-radius: 14px; padding: 0.85rem; cursor: pointer; color: var(--accent); font-weight: 650; }
+
+.loc { display: flex; align-items: center; gap: 0.65rem; padding: 0.65rem 0.75rem; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); min-width: 0; }
+.loc .nm { flex: 1; min-width: 0; font-weight: 620; overflow: hidden; text-overflow: ellipsis; }
+.loc .sub { color: var(--muted); font-size: 0.8rem; font-weight: 400; }
+.loc.empty .nm { color: var(--muted); font-weight: 400; }
+.ki { width: 1.45rem; height: 1.45rem; flex: none; color: var(--muted); }
+.ki.hs { display: inline-grid; place-items: center; border-radius: 50%; background: #1F7A3A; color: #FFD200; font-weight: 800; font-size: 0.85rem; }
+.sbox { display: flex; flex-direction: column; gap: 0.4rem; }
+.res { display: flex; flex-direction: column; border-radius: 10px; overflow: hidden; border: 1px solid var(--line); }
+.res:empty { display: none; }
+.res .hint { padding: 0.6rem 0.75rem; }
+.hit { display: flex; align-items: center; gap: 0.6rem; text-align: left; padding: 0.6rem 0.75rem; background: var(--surface); border: 0; border-top: 1px solid var(--line); cursor: pointer; width: 100%; }
+.hit:first-child { border-top: 0; }
+.hit .h-n { flex: 1; min-width: 0; }
+.hit .h-p { color: var(--muted); font-size: 0.76rem; text-align: right; }
+.chips { display: flex; flex-wrap: wrap; gap: 0.45rem; }
+.chip { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 0.42rem 0.85rem; cursor: pointer; font-size: 0.92rem; }
+.chip.on { background: var(--fg); color: var(--surface); border-color: var(--fg); }
+.lchip { border: 0; padding: 3px; background: transparent; cursor: pointer; opacity: 0.32; border-radius: 9px; }
+.lchip.on { opacity: 1; box-shadow: 0 0 0 2px var(--fg); }
+.lchip .badge { display: inline-block; font-size: 0.95rem; min-width: 3.1em; padding: 0.3em 0.5em; }
+.stp { display: flex; align-items: center; justify-content: space-between; gap: 0.8rem; }
+.stp-l { min-width: 0; }
+.stp-c { display: flex; align-items: center; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; flex: none; }
+.stp-c button { width: 2.8rem; height: 2.5rem; border: 0; background: var(--surface); font-size: 1.25rem; cursor: pointer; color: var(--accent); }
+.stp-c output { min-width: 4.8rem; text-align: center; font-weight: 650; padding: 0 0.3rem; }
+.seg { display: flex; background: var(--bg); border-radius: 11px; padding: 0.25rem; gap: 0.25rem; flex-wrap: wrap; }
+.seg button { flex: 1 0 auto; border: 0; background: transparent; border-radius: 8px; padding: 0.5rem 0.8rem; cursor: pointer; color: var(--muted); font-weight: 600; }
+.seg button.on { background: var(--surface); color: var(--fg); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12); }
+.tog { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.times { display: flex; align-items: center; gap: 0.6rem; }
+.times input { max-width: 9rem; }
+.pv { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 0.4rem 0.6rem; align-items: center; font-size: 0.95rem; }
+.pv > .hint { grid-column: 1 / -1; }
+.pv .dest { font-size: 1em; }
+.pv-r { display: flex; flex-direction: column; gap: 0.6rem; font-size: 0.95rem; }
+.dz { display: flex; justify-content: center; padding: 0.4rem 0 1rem; }
+details summary { cursor: pointer; color: var(--muted); font-size: 0.85rem; padding: 0.2rem 0; }
+details[open] summary { margin-bottom: 0.6rem; }
 
 @media (prefers-reduced-motion: no-preference) {
   .row > .c { transition: opacity 0.6s; }
@@ -253,12 +391,13 @@ textarea { font-family: ui-monospace, Menlo, monospace; font-size: 0.75rem; min-
 <body>
 <main class="app" id="app">
   <section class="boards" id="boards" aria-label="Abfahrten"></section>
-  <aside class="side" id="side" aria-label="Wetter">
+  <aside class="side" id="side" aria-label="Wetter und Routen">
     <div class="clock"><div class="hm" id="hm">--:--</div><div class="dt" id="dt"></div></div>
     <div class="alerts" id="alerts"></div>
     <div class="card" id="w-now"><div class="lbl">Jetzt</div><div class="cond">Wetterdaten werden geladen …</div></div>
     <div class="card" id="w-rain"><div class="lbl">Regen · nächste 12 Std.</div><div class="rain-s">…</div></div>
     <div class="card" id="w-day"><div class="lbl">Temperatur · 24 Std.</div></div>
+    <div class="card routes" id="routes" hidden></div>
     <div class="foot">
       <div id="src">Fahrplandaten: VBB via transport.rest<br>Wetter: Deutscher Wetterdienst via Bright Sky</div>
       <button class="gear" id="gear" aria-label="Einstellungen öffnen">
@@ -267,6 +406,13 @@ textarea { font-family: ui-monospace, Menlo, monospace; font-size: 0.75rem; min-
     </div>
   </aside>
 </main>
+<div class="ov" id="ov" hidden>
+  <div class="ov-box" role="dialog" aria-modal="true" aria-labelledby="ov-h">
+    <div class="ov-head"><h2 id="ov-h">Meldungen</h2><button class="btn" id="ov-x">Schließen</button></div>
+    <div id="ov-list"></div>
+    <div class="ov-hint">Meldungen gelten für die ganze Linie, nicht unbedingt für deinen Abschnitt oder deine Richtung.</div>
+  </div>
+</div>
 <div class="sheet" id="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="sheet-h"></div>
 
 <script>
@@ -280,27 +426,44 @@ const PRODUCTS = [
   ["suburban", "S-Bahn"], ["subway", "U-Bahn"], ["tram", "Tram"], ["bus", "Bus"],
   ["regional", "Regio"], ["express", "Fernverkehr"], ["ferry", "Fähre"]
 ];
+const ROUTE_PRODUCTS = ["suburban", "subway", "tram", "bus", "regional", "ferry"];
 const DEFAULTS = {
-  version: 1,
+  version: 2,
   api: "https://v6.vbb.transport.rest",
   place: { name: "Friedrichshain", lat: 52.5106, lon: 13.4545 },
+  home: { place: { kind: "stop", id: null, name: "S+U Warschauer Str." }, walk: 5 },
   theme: "auto",
   nightDim: true,
+  routePos: "side",
   boards: [
     { title: "Warschauer → Ostbahnhof", stop: { id: null, name: "S+U Warschauer Str." }, via: { id: null, name: "S Ostbahnhof" }, lines: "S3, S5, S7, S9", products: ["suburban"], walk: 5, count: 8 },
     { title: "Warschauer → Ostkreuz", stop: { id: null, name: "S+U Warschauer Str." }, via: { id: "900120003", name: "S Ostkreuz" }, lines: "S3, S5, S7, S9", products: ["suburban"], walk: 5, count: 8 },
     { title: "Ostkreuz · Ring", stop: { id: "900120003", name: "S Ostkreuz" }, via: null, lines: "S41, S42", products: ["suburban"], walk: 5, count: 8 },
     { title: "M10 → Turmstraße", stop: { id: null, name: "S+U Warschauer Str." }, via: null, lines: "M10", products: ["tram"], walk: 5, count: 8 }
+  ],
+  routes: [
+    { id: "uni", title: "Uni", from: null, to: { kind: "address", id: null, name: "Luxemburger Straße 10, 13353 Berlin" }, products: ROUTE_PRODUCTS.slice(), results: 3, days: [], start: "", end: "" }
   ]
 };
 
 const clone = (o) => JSON.parse(JSON.stringify(o));
+const newId = () => "r" + Math.random().toString(36).slice(2, 9);
+function normalizeConfig(c) {
+  const out = Object.assign(clone(DEFAULTS), c);
+  if (!Array.isArray(out.routes)) out.routes = clone(DEFAULTS.routes);
+  if (!out.home || typeof out.home !== "object") out.home = clone(DEFAULTS.home);
+  if (!out.home.place) out.home.place = clone(DEFAULTS.home.place);
+  if (["side", "board", "off"].indexOf(out.routePos) < 0) out.routePos = "side";
+  out.routes.forEach((r) => { if (!r.id) r.id = newId(); });
+  out.version = 2;
+  return out;
+}
 function loadConfig() {
   try {
     const raw = localStorage.getItem(KEY);
     if (raw) {
       const c = JSON.parse(raw);
-      if (c && Array.isArray(c.boards)) return Object.assign(clone(DEFAULTS), c);
+      if (c && Array.isArray(c.boards)) return normalizeConfig(c);
     }
   } catch (e) {}
   return clone(DEFAULTS);
@@ -309,6 +472,7 @@ function saveConfig(c) {
   try { localStorage.setItem(KEY, JSON.stringify(c)); return true; } catch (e) { return false; }
 }
 let cfg = loadConfig();
+saveConfig(cfg);
 
 /* ---------- Hilfsfunktionen ---------- */
 const $ = (id) => document.getElementById(id);
@@ -317,7 +481,9 @@ const fmtHM = new Intl.DateTimeFormat("de-DE", { hour: "2-digit", minute: "2-dig
 const fmtDay = new Intl.DateTimeFormat("de-DE", { weekday: "long", day: "numeric", month: "long", timeZone: TZ });
 const fmtWdHM = new Intl.DateTimeFormat("de-DE", { weekday: "short", hour: "2-digit", minute: "2-digit", timeZone: TZ });
 const fmtH = new Intl.DateTimeFormat("en-GB", { hour: "numeric", hourCycle: "h23", timeZone: TZ });
+const fmtParts = new Intl.DateTimeFormat("en-GB", { weekday: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: TZ });
 const hm = (d) => fmtHM.format(d);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
 async function getJSON(url, timeoutMs) {
   const ctl = new AbortController();
@@ -336,15 +502,29 @@ const LINE_COLORS = {
   U6: "#8C6DAB", U7: "#528DBA", U8: "#224F86", U9: "#F3791D"
 };
 const PRODUCT_COLORS = { suburban: "#008D4F", subway: "#115D91", tram: "#CC0A22", bus: "#95276E", regional: "#E30613", express: "#5A5A5A", ferry: "#0080BA" };
+const TRAM_M = ["M1", "M2", "M4", "M5", "M6", "M8", "M10", "M13", "M17"];
+function guessProduct(n) {
+  n = normLine(n);
+  if (/^S\d/.test(n)) return "suburban";
+  if (/^U\d/.test(n)) return "subway";
+  if (TRAM_M.indexOf(n) >= 0 || /^\d{2}$/.test(n)) return "tram";
+  if (/^(RE|RB)\d/.test(n)) return "regional";
+  if (/^F\d/.test(n)) return "ferry";
+  return "bus";
+}
 function badgeStyle(line) {
   const name = (line && line.name || "").replace(/\s+/g, "").toUpperCase();
   const bg = LINE_COLORS[name] || PRODUCT_COLORS[line && line.product] || "#5A6A73";
   const fg = name === "U4" ? "#111" : "#fff";
   return "background:" + bg + ";color:" + fg;
 }
+function badgeHtml(line, small) {
+  const prod = line && line.product === "tram" ? " tram" : "";
+  return '<span class="badge' + (small ? " s" : "") + prod + '" style="' + badgeStyle(line) + '">' + esc(line && line.name) + "</span>";
+}
 function cleanDest(s) {
   return String(s || "")
-    .replace(/\s*\(Berlin\)\s*/g, " ")
+    .replace(/\s*\(Berlin\)\s*/g, " ").trim()
     .replace(/^S\+U\s+/, "").replace(/^S\s+/, "").replace(/^U\s+/, "")
     .replace(/\s+Bhf\.?$/, "").replace(/\s+/g, " ").trim();
 }
@@ -353,8 +533,54 @@ function cleanDestFor(dest, line) {
   const out = l ? dest.replace(new RegExp("(^|\\s)" + l + "(?=\\s|$)"), " ").replace(/\s+/g, " ").trim() : dest;
   return out || dest;
 }
+/* Kurzname für Orte: Haltestellen ohne Präfix, Adressen ohne PLZ/Ort */
+function placeShort(ref) {
+  if (!ref) return "";
+  const n = String(ref.name || "");
+  if ((ref.kind || "stop") === "stop") return cleanDest(n);
+  const parts = n.split(/\s*,\s*/);
+  if (ref.kind === "address" && parts.length > 1) {
+    const street = parts.find((p) => /\d/.test(p) && !/^\d{5}\b/.test(p));
+    return street || parts[parts.length - 1];
+  }
+  return n;
+}
 const normLine = (s) => String(s || "").replace(/\s+/g, "").toUpperCase();
 const parseLines = (s) => String(s || "").split(/[,;\s]+/).map(normLine).filter(Boolean);
+const minsBetween = (a, b) => Math.round((b.getTime() - a.getTime()) / 60000);
+
+/* Betriebsmeldungen: Kurzfassung + Text, HTML entfernt, nur aktuell gültige */
+function plainText(s) {
+  const raw = String(s || "");
+  if (!/[<&]/.test(raw)) return raw.replace(/\s+/g, " ").trim();
+  try {
+    const doc = new DOMParser().parseFromString("<body>" + raw.replace(/<br\s*\/?>/gi, " ") + "</body>", "text/html");
+    return (doc.body.textContent || "").replace(/\s+/g, " ").trim();
+  } catch (e) { return raw.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim(); }
+}
+function notesOf(list) {
+  const now = Date.now();
+  return (list || [])
+    .filter((r) => r && r.type === "warning")
+    .filter((r) => {
+      const f = r.validFrom ? Date.parse(r.validFrom) : NaN, u = r.validUntil ? Date.parse(r.validUntil) : NaN;
+      return !(f > now) && !(u < now);
+    })
+    .map((r) => {
+      let head = plainText(r.summary).replace(/[\s.:]+$/, ""), body = plainText(r.text);
+      if (!head && !body) return null;
+      if (!body) { body = head; head = ""; }
+      else if (head && body.toLowerCase().indexOf(head.toLowerCase()) === 0) head = "";
+      const full = head ? head + ": " + body : body;
+      return { head, body, full, prio: Number(r.priority) || 0, key: full.slice(0, 80).toLowerCase() };
+    })
+    .filter(Boolean);
+}
+function mergeNotes(groups) {
+  const seen = new Set(), out = [];
+  groups.forEach((g) => (g || []).forEach((n) => { if (!seen.has(n.key)) { seen.add(n.key); out.push(n); } }));
+  return out.sort((a, b) => b.prio - a.prio);
+}
 
 /* Sonnenauf-/-untergang (nach SunCalc, V. Agafonkin) */
 function sunTimes(date, lat, lng) {
@@ -390,30 +616,32 @@ function applyTheme() {
 }
 if (mq && mq.addEventListener) mq.addEventListener("change", applyTheme);
 
-/* ---------- Abfahrten ---------- */
-const state = { boards: [] };
-const WALK_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="13" cy="4" r="2"/><path d="M12 7.5 10.5 14l-3 7M10.5 14l3.5 3 1 4M11.5 9.5 8 12M12 8.5l3.5 3"/></svg>';
-const BIKE_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5.5" cy="16.5" r="3.5"/><circle cx="18.5" cy="16.5" r="3.5"/><path d="M5.5 16.5 9 9h7l2.5 7.5M9 9l3.5 7.5h-7M8 6h3M15 6.5h2.5L16 9"/></svg>';
-const NOTE_ICON = '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M10 2.8 18 17H2z"/><path d="M10 8v4M10 14.4v.2" stroke-linecap="round"/></svg>';
-
-function buildBoards() {
-  const host = $("boards");
-  host.innerHTML = "";
-  host.setAttribute("data-n", String(cfg.boards.length));
-  state.boards = cfg.boards.map((b, i) => {
-    const el = document.createElement("article");
-    el.className = "board";
-    el.innerHTML = '<div class="b-head"><div class="b-title"></div><div class="b-meta"></div></div><div class="b-note" hidden></div><div class="b-pause" hidden></div><div class="rows"></div>';
-    host.appendChild(el);
-    return { cfg: b, idx: i, el, deps: [], lastOk: 0, error: null, notes: [], nextAt: 0 };
-  });
-  state.boards.forEach(renderBoard);
+/* ---------- Orte und Haltestellen auflösen ---------- */
+function toRef(x) {
+  if (!x) return null;
+  const lat = typeof x.latitude === "number" ? x.latitude : x.location && x.location.latitude;
+  const lon = typeof x.longitude === "number" ? x.longitude : x.location && x.location.longitude;
+  if (x.type === "stop" || x.type === "station") {
+    if (!x.id) return null;
+    return { kind: "stop", id: String(x.id), name: x.name, lat, lon, info: PRODUCTS.filter(([p]) => x.products && x.products[p]).map(([, l]) => l).join(", ") };
+  }
+  if (typeof lat !== "number" || typeof lon !== "number") return null;
+  if (x.poi) return { kind: "poi", id: x.id ? String(x.id) : null, name: x.name || x.address, lat, lon, info: "Ort" };
+  return { kind: "address", id: null, name: x.address || x.name, lat, lon, info: "Adresse" };
 }
-
-async function resolveStop(ref, products) {
+/* kinds: s = Haltestellen, a = Adressen, p = Orte (POI) */
+async function searchLocations(q, kinds, api) {
+  const k = kinds || "s";
+  const url = (api || cfg.api) + "/locations?query=" + encodeURIComponent(q) + "&results=8&stops=" + (k.indexOf("s") >= 0) +
+    "&addresses=" + (k.indexOf("a") >= 0) + "&poi=" + (k.indexOf("p") >= 0) + "&linesOfStops=false&language=de&pretty=false";
+  const list = await getJSON(url);
+  const want = { stop: "s", address: "a", poi: "p" };
+  return (Array.isArray(list) ? list : []).map(toRef).filter((r) => r && k.indexOf(want[r.kind]) >= 0);
+}
+async function resolveStop(ref, products, api) {
   if (!ref) return null;
   if (ref.id) return ref.id;
-  const url = cfg.api + "/locations?query=" + encodeURIComponent(ref.name) + "&results=8&poi=false&addresses=false&linesOfStops=false&language=de";
+  const url = (api || cfg.api) + "/locations?query=" + encodeURIComponent(ref.name) + "&results=8&poi=false&addresses=false&linesOfStops=false&language=de";
   const list = await getJSON(url);
   const arr = Array.isArray(list) ? list : [];
   const stops = arr.filter((x) => x && (x.type === "stop" || x.type === "station") && x.id);
@@ -422,8 +650,50 @@ async function resolveStop(ref, products) {
   if (!hit) throw new Error("Haltestelle „" + ref.name + "“ nicht gefunden");
   ref.id = String(hit.id);
   ref.name = hit.name || ref.name;
+  const r = toRef(hit);
+  if (r && typeof r.lat === "number") { ref.lat = r.lat; ref.lon = r.lon; }
   saveConfig(cfg);
   return ref.id;
+}
+async function resolvePlace(ref, api) {
+  if (!ref) return null;
+  const kind = ref.kind || "stop";
+  if (kind === "stop" && ref.id) return ref;
+  if (kind !== "stop" && typeof ref.lat === "number" && typeof ref.lon === "number") return ref;
+  let list = await searchLocations(ref.name, kind === "stop" ? "s" : kind === "address" ? "a" : "p", api);
+  if (!list.length) list = await searchLocations(ref.name, "sap", api);
+  const hit = list[0];
+  if (!hit) throw new Error("„" + ref.name + "“ nicht gefunden");
+  ref.kind = hit.kind; ref.id = hit.id; ref.name = hit.name; ref.lat = hit.lat; ref.lon = hit.lon;
+  saveConfig(cfg);
+  return ref;
+}
+function placeParams(prefix, p) {
+  const kind = p.kind || "stop";
+  if (kind === "stop") return prefix + "=" + encodeURIComponent(p.id);
+  if (kind === "poi") return prefix + ".id=" + encodeURIComponent(p.id || "") + "&" + prefix + ".name=" + encodeURIComponent(p.name) + "&" + prefix + ".latitude=" + p.lat + "&" + prefix + ".longitude=" + p.lon;
+  return prefix + ".address=" + encodeURIComponent(p.name) + "&" + prefix + ".latitude=" + p.lat + "&" + prefix + ".longitude=" + p.lon;
+}
+
+/* ---------- Abfahrten ---------- */
+const state = { boards: [], routes: [], routeEl: null, routeSel: null, routeSelUntil: 0 };
+const WALK_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="13" cy="4" r="2"/><path d="M12 7.5 10.5 14l-3 7M10.5 14l3.5 3 1 4M11.5 9.5 8 12M12 8.5l3.5 3"/></svg>';
+const BIKE_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5.5" cy="16.5" r="3.5"/><circle cx="18.5" cy="16.5" r="3.5"/><path d="M5.5 16.5 9 9h7l2.5 7.5M9 9l3.5 7.5h-7M8 6h3M15 6.5h2.5L16 9"/></svg>';
+const NOTE_ICON = '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true"><path d="M10 2.8 18 17H2z"/><path d="M10 8v4M10 14.4v.2" stroke-linecap="round"/></svg>';
+
+function buildBoards() {
+  const host = $("boards");
+  host.innerHTML = "";
+  const extra = cfg.routes.length && cfg.routePos === "board" ? 1 : 0;
+  host.setAttribute("data-n", String(cfg.boards.length + extra));
+  state.boards = cfg.boards.map((b, i) => {
+    const el = document.createElement("article");
+    el.className = "board";
+    el.innerHTML = '<div class="b-head"><div class="b-title"></div><div class="b-meta"></div></div><div class="b-note" role="button" tabindex="0" data-src="b' + i + '" hidden></div><div class="b-pause" hidden></div><div class="rows"></div>';
+    host.appendChild(el);
+    return { cfg: b, idx: i, el, deps: [], lastOk: 0, error: null, notes: [], nextAt: 0 };
+  });
+  state.boards.forEach(renderBoard);
 }
 
 function mapDeps(list, want, stopId) {
@@ -438,7 +708,7 @@ function mapDeps(list, want, stopId) {
       planned: d.plannedWhen ? new Date(d.plannedWhen) : null,
       delay: typeof d.delay === "number" ? d.delay : null,
       cancelled: !!d.cancelled,
-      remarks: (d.remarks || []).filter((r) => r && r.type === "warning").map((r) => r.summary || r.text).filter(Boolean)
+      notes: notesOf(d.remarks)
     }))
     .filter((d) => !isNaN(d.t))
     .sort((a, b2) => a.t - b2.t)
@@ -452,8 +722,8 @@ function mapDeps(list, want, stopId) {
     });
 }
 
-async function fetchDeps(b, stopId, viaId, duration, results) {
-  let url = cfg.api + "/stops/" + encodeURIComponent(stopId) + "/departures?duration=" + duration + "&results=" + results + "&remarks=true&language=de&linesOfStops=false";
+async function fetchDeps(b, stopId, viaId, duration, results, api) {
+  let url = (api || cfg.api) + "/stops/" + encodeURIComponent(stopId) + "/departures?duration=" + duration + "&results=" + results + "&remarks=true&language=de&linesOfStops=false&pretty=false";
   const prods = b.products && b.products.length ? b.products : null;
   if (prods) PRODUCTS.forEach(([p]) => { url += "&" + p + "=" + (prods.indexOf(p) >= 0); });
   if (viaId) url += "&direction=" + encodeURIComponent(viaId);
@@ -469,9 +739,7 @@ async function loadBoard(bs) {
     const viaId = b.via ? await resolveStop(b.via, null) : null;
     bs.deps = await fetchDeps(b, stopId, viaId, 60, 40);
     bs.depsAt = Date.now();
-    const seen = new Set();
-    bs.notes = [];
-    bs.deps.forEach((d) => d.remarks.forEach((r) => { const k = r.slice(0, 80); if (!seen.has(k)) { seen.add(k); bs.notes.push(r); } }));
+    bs.notes = mergeNotes(bs.deps.map((d) => d.notes));
     // Weniger Fahrten in der nächsten Stunde als eingestellt (z. B. Nachttakt oder Betriebspause):
     // bis zu 6 Std. vorausschauen, höchstens alle 10 Min.
     const limit = Math.max(1, Number(b.count) || 6);
@@ -490,11 +758,20 @@ async function loadBoard(bs) {
   renderBoard(bs);
 }
 
+function noteBar(el, notes, src) {
+  if (!el) return;
+  if (!notes || !notes.length) { el.hidden = true; return; }
+  el.hidden = false;
+  el.setAttribute("data-src", src);
+  el.setAttribute("aria-label", notes.length === 1 ? "Meldung öffnen" : notes.length + " Meldungen öffnen");
+  el.innerHTML = NOTE_ICON + '<span class="tx">' + esc(notes[0].full) + "</span>" + (notes.length > 1 ? '<span class="more">+' + (notes.length - 1) + "</span>" : "");
+}
+
 function renderBoard(bs) {
   const b = bs.cfg, el = bs.el, now = Date.now();
   el.querySelector(".b-title").textContent = b.title || (b.stop && b.stop.name) || "Tafel";
   const walk = Math.max(0, Number(b.walk) || 0);
-  const bike = b.bike === "" || b.bike === null || b.bike === undefined || isNaN(Number(b.bike)) ? null : Math.max(0, Number(b.bike));
+  const bike = b.bike === "" || b.bike === null || b.bike === undefined || isNaN(Number(b.bike)) || Number(b.bike) <= 0 ? null : Number(b.bike);
   let meta = bike !== null
     ? '<span class="mi" title="zu Fuß">' + WALK_ICON + walk + '</span><span class="mi" title="mit dem Rad">' + BIKE_ICON + bike + " Min.</span>"
     : (walk ? walk + " Min. Fußweg" : "");
@@ -502,11 +779,7 @@ function renderBoard(bs) {
   if (stale) meta = '<span class="stale">Stand ' + hm(new Date(bs.lastOk)) + "</span>" + (meta ? " · " + meta : "");
   el.querySelector(".b-meta").innerHTML = meta;
 
-  const note = el.querySelector(".b-note");
-  if (bs.notes.length) {
-    note.hidden = false;
-    note.innerHTML = NOTE_ICON + "<span>" + esc(bs.notes[0]) + "</span>";
-  } else note.hidden = true;
+  noteBar(el.querySelector(".b-note"), bs.notes, "b" + bs.idx);
 
   const rows = el.querySelector(".rows");
   const pause = el.querySelector(".b-pause");
@@ -580,15 +853,348 @@ function renderBoard(bs) {
       if (m >= 1) dl = '<span class="dl">+' + m + "</span>";
       else if (m <= -1) dl = '<span class="dl ok">' + m + "</span>";
     }
-    const prod = d.line.product === "tram" ? " tram" : "";
     return '<div class="' + cls.join(" ") + '">' +
-      '<span class="c"><span class="badge' + prod + '" style="' + badgeStyle(d.line) + '">' + esc(d.line.name) + "</span></span>" +
+      '<span class="c">' + badgeHtml(d.line) + "</span>" +
       '<span class="c"><span class="dest">' + esc(cleanDestFor(d.dest, d.line.name)) + "</span></span>" +
       '<span class="c r time">' + hm(t) + dl + "</span>" +
       '<span class="c r go' + goCls + '">' + go + "</span></div>";
   }).join("");
   while (el.scrollHeight > el.clientHeight + 1 && rows.children.length > 2) rows.removeChild(rows.lastElementChild);
 }
+
+/* ---------- Routen ---------- */
+function originWalk(r, home, from) {
+  if ((from.kind || "stop") !== "stop") return 0;
+  return Math.max(0, Number(r.from ? r.walk : home && home.walk) || 0);
+}
+function mapJourney(j, walk) {
+  const legs = (j.legs || []).map((l) => {
+    const dep = l.departure || l.plannedDeparture, arr = l.arrival || l.plannedArrival;
+    return {
+      walk: !!l.walking,
+      line: l.line || null,
+      dir: cleanDest(l.direction || ""),
+      from: cleanDest(l.origin && (l.origin.name || l.origin.address)),
+      to: cleanDest(l.destination && (l.destination.name || l.destination.address)),
+      dep: dep ? new Date(dep) : null,
+      arr: arr ? new Date(arr) : null,
+      pdep: l.plannedDeparture ? new Date(l.plannedDeparture) : null,
+      ddel: typeof l.departureDelay === "number" ? l.departureDelay : null,
+      plat: l.departurePlatform || l.plannedDeparturePlatform || "",
+      cancelled: !!l.cancelled,
+      notes: notesOf(l.remarks)
+    };
+  }).filter((l) => l.dep && l.arr && !isNaN(l.dep) && !isNaN(l.arr));
+  if (!legs.length) return null;
+  const ride = legs.filter((l) => !l.walk);
+  const last = legs[legs.length - 1];
+  return {
+    key: ride.length ? ride.map((l) => (l.line && l.line.name) + "@" + (l.pdep || l.dep).getTime()).join("|") : "walk@" + legs[0].dep.getTime(),
+    legs, ride,
+    leave: new Date(legs[0].dep.getTime() - walk * 60000),
+    arrive: last.arr,
+    cancelled: ride.some((l) => l.cancelled),
+    notes: mergeNotes(ride.map((l) => l.notes).concat([notesOf(j.remarks)]))
+  };
+}
+async function fetchJourneys(r, home, api, results) {
+  const fromRef = r.from || (home && home.place);
+  if (!fromRef) throw new Error("Kein Start festgelegt (Einstellungen → Orte)");
+  if (!r.to) throw new Error("Kein Ziel festgelegt");
+  const from = await resolvePlace(fromRef, api);
+  const to = await resolvePlace(r.to, api);
+  const walk = originWalk(r, home, from);
+  const prods = r.products && r.products.length ? r.products : null;
+  let url = (api || cfg.api) + "/journeys?" + placeParams("from", from) + "&" + placeParams("to", to) +
+    "&departure=" + encodeURIComponent(new Date(Date.now() + walk * 60000).toISOString()) +
+    "&results=" + results + "&stopovers=false&remarks=true&language=de&pretty=false";
+  if (prods) PRODUCTS.forEach(([p]) => { url += "&" + p + "=" + (prods.indexOf(p) >= 0); });
+  const d = await getJSON(url, 20000);
+  const seen = new Set();
+  return ((d && d.journeys) || [])
+    .map((j) => mapJourney(j, walk))
+    .filter((j) => j && !seen.has(j.key) && seen.add(j.key))
+    .sort((a, b) => a.leave - b.leave);
+}
+
+function buildRoutes() {
+  state.routes = (cfg.routes || []).map((r) => ({ cfg: r, journeys: [], lastOk: 0, error: null, notes: [], nextAt: 0 }));
+  const side = $("routes");
+  side.hidden = true; side.innerHTML = "";
+  $("side").classList.remove("has-routes");
+  state.routeEl = null;
+  if (!state.routes.length || cfg.routePos === "off") return;
+  let el = side;
+  if (cfg.routePos === "board") {
+    el = document.createElement("article");
+    el.className = "board routes";
+    $("boards").appendChild(el);
+  } else side.hidden = false;
+  el.innerHTML = '<div class="r-feat"></div><div class="r-list" hidden></div>';
+  const list = el.querySelector(".r-list");
+  // Solange der Finger auf der Liste liegt oder gescrollt wird, nicht neu zeichnen
+  const busy = () => { state.listBusy = true; clearTimeout(state.listBusyT); state.listBusyT = setTimeout(() => { state.listBusy = false; }, 2500); };
+  ["pointerdown", "touchstart", "scroll", "wheel"].forEach((t) => list.addEventListener(t, busy, { passive: true }));
+  list.addEventListener("scroll", () => fadeHint(list), { passive: true });
+  state.routeEl = el;
+  $("side").classList.toggle("has-routes", el === side);
+  renderRoutes();
+}
+
+/* Zeitfenster: Route automatisch zeigen, wenn Wochentag und Uhrzeit passen */
+const WD = { Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6, Sun: 7 };
+function localNow() {
+  const p = {};
+  fmtParts.formatToParts(new Date()).forEach((x) => { p[x.type] = x.value; });
+  return { wd: WD[p.weekday], min: Number(p.hour) * 60 + Number(p.minute) };
+}
+const toMin = (s) => { const m = /^(\d{1,2}):(\d{2})/.exec(s || ""); return m ? Number(m[1]) * 60 + Number(m[2]) : null; };
+function routeWindow(r, ln) {
+  const days = r.days || [], a = toMin(r.start), b = toMin(r.end);
+  if (!days.length && a === null && b === null) return null;
+  if (days.length && days.indexOf(ln.wd) < 0) return false;
+  if (a === null && b === null) return true;
+  const s = a === null ? 0 : a, e = b === null ? 1440 : b;
+  return s <= e ? ln.min >= s && ln.min < e : ln.min >= s || ln.min < e;
+}
+/* Antipp-Statistik: wann welche Route gewählt wurde (nur auf diesem iPad) */
+const UKEY = "tafel.usage.v1";
+function loadUsage() { try { return JSON.parse(localStorage.getItem(UKEY)) || {}; } catch (e) { return {}; } }
+function recordUse(id) {
+  if (!id) return;
+  const u = loadUsage(), ln = localNow(), now = Date.now();
+  u[id] = (u[id] || []).filter((x) => now - x[0] < 60 * 864e5).concat([[now, ln.wd, ln.min]]).slice(-200);
+  try { localStorage.setItem(UKEY, JSON.stringify(u)); } catch (e) {}
+}
+/* Gewichtete Klicks: ältere zählen weniger (Halbwertszeit ca. 2 Wochen). „Slot“ = gleiche Tagesart (Mo–Fr bzw. Sa/So) und ±90 Min. um die aktuelle Uhrzeit */
+function usageScores(ln) {
+  const u = loadUsage(), now = Date.now();
+  return state.routes.map((rs) => {
+    let slot = 0, all = 0;
+    (u[rs.cfg.id] || []).forEach(([t, wd, m]) => {
+      const w = Math.exp(-(now - t) / (21 * 864e5));
+      all += w;
+      let d = Math.abs(m - ln.min); d = Math.min(d, 1440 - d);
+      if ((wd >= 6) === (ln.wd >= 6) && d <= 90) slot += w;
+    });
+    return { slot, all };
+  });
+}
+function currentRoute() {
+  const R = state.routes;
+  if (!R.length) return -1;
+  if (state.routeSel !== null && Date.now() < state.routeSelUntil) return Math.min(state.routeSel, R.length - 1);
+  state.routeSel = null;
+  const ln = localNow();
+  const hit = R.findIndex((rs) => routeWindow(rs.cfg, ln) === true);
+  if (hit >= 0) return hit;
+  if (R.length > 1) {
+    const sc = usageScores(ln);
+    const best = (key, min) => { let k = -1, v = min; sc.forEach((x, i) => { if (x[key] >= v) { v = x[key]; k = i; } }); return k; };
+    const bySlot = best("slot", 2);
+    if (bySlot >= 0) return bySlot;
+    const byAll = best("all", 3);
+    if (byAll >= 0) return byAll;
+  }
+  const free = R.findIndex((rs) => routeWindow(rs.cfg, ln) === null);
+  return free >= 0 ? free : 0;
+}
+
+/* Hervorgehobene Route jede Minute, die übrigen alle 3 Minuten */
+async function loadRoute(rs, featured) {
+  const r = rs.cfg;
+  const want = clamp(Number(r.results) || 3, 1, 4);
+  try {
+    rs.journeys = await fetchJourneys(r, cfg.home, cfg.api, featured ? want + 2 : 3);
+    rs.lastOk = Date.now();
+    rs.error = null;
+    rs.nextAt = Date.now() + (featured ? 60000 : 180000);
+  } catch (e) {
+    rs.error = e;
+    rs.nextAt = Date.now() + (e && e.status === 429 ? 120000 : featured ? 60000 : 180000);
+  }
+  renderRoutes();
+}
+
+function goTxt(J, now) {
+  if (J.cancelled) return "fällt aus";
+  const m = Math.floor((J.leave.getTime() - now) / 60000);
+  return m <= 0 ? "jetzt los" : m < 60 ? "los in " + m + " Min" : "los um " + hm(J.leave);
+}
+function durTxt(J) {
+  const m = minsBetween(J.leave, J.arrive);
+  const d = m >= 60 ? Math.floor(m / 60) + " Std. " + (m % 60) + " Min" : m + " Min";
+  return J.ride.length ? d : d + " zu Fuß";
+}
+/* Kette: Fußweg, Linien in Reihenfolge; knappe Umstiege markiert */
+function chainHtml(J, small) {
+  const parts = [];
+  let prev = null, walkBetween = 0;
+  J.legs.forEach((l, i) => {
+    if (l.walk) {
+      const m = minsBetween(l.dep, l.arr);
+      if (prev) walkBetween += m;
+      if (m >= 1 && !small) parts.push('<span class="wk">' + WALK_ICON + m + "</span>");
+      else if (m >= 1 && small && (i === 0 || i === J.legs.length - 1)) parts.push('<span class="wk">' + WALK_ICON + m + "</span>");
+      return;
+    }
+    let pre = "";
+    if (prev && minsBetween(prev.arr, l.dep) - walkBetween < 2) pre = '<span class="knapp">knapp</span>';
+    parts.push(pre + badgeHtml(l.line, true));
+    prev = l; walkBetween = 0;
+  });
+  return parts.join('<span class="sep">›</span>');
+}
+function legsHtml(J) {
+  let h = "", prev = null, walkBetween = 0;
+  J.legs.forEach((l) => {
+    if (l.walk) { if (prev) walkBetween += minsBetween(l.dep, l.arr); return; }
+    if (prev) {
+      const gap = minsBetween(prev.arr, l.dep);
+      const tight = gap - walkBetween < 2;
+      h += '<span class="tr' + (tight ? " tight" : "") + '">Umstieg ' + gap + " Min" + (walkBetween ? ", davon " + walkBetween + " Min Fußweg" : "") + (tight ? " · knapp" : "") + "</span>";
+    }
+    let dl = "";
+    if (l.ddel !== null) { const m = Math.round(l.ddel / 60); if (m >= 1) dl = '<span class="dl">+' + m + "</span>"; }
+    h += "<span>" + badgeHtml(l.line, true) + "</span>" +
+      '<span class="lg"><span class="l1">' + (l.cancelled ? '<span class="x">fällt aus · </span>' : "") + "Ri. " + esc(l.dir || l.to) + (l.plat ? " · Gl. " + esc(l.plat) : "") + "</span>" +
+      '<span class="l2">' + hm(l.dep) + dl + " " + esc(l.from) + " – " + hm(l.arr) + " " + esc(l.to) + "</span></span>";
+    prev = l; walkBetween = 0;
+  });
+  return h;
+}
+function journeyHtml(J, now, detail) {
+  if (!detail) {
+    return '<div class="jr small' + (J.cancelled ? " cancel" : "") + '"><span class="j-go">' + goTxt(J, now) + '</span><span class="chain">' + chainHtml(J, true) +
+      '</span><span class="j-tm">an ' + hm(J.arrive) + "</span></div>";
+  }
+  return '<div class="jr first' + (J.cancelled ? " cancel" : "") + '"><div class="j-top"><span class="j-go">' + goTxt(J, now) + '</span><span class="j-tm">an ' + hm(J.arrive) +
+    '</span><span class="j-du">' + durTxt(J) + '</span></div><div class="chain">' + chainHtml(J, false) + "</div>" +
+    (detail === "legs" && J.ride.length ? '<div class="legs">' + legsHtml(J) + "</div>" : "") + "</div>";
+}
+function routeHeadHtml(rs, now) {
+  const stale = rs.lastOk && now - rs.lastOk > 240000;
+  return '<div class="r-head"><div class="b-title">' + esc(rs.cfg.title || "Route") + '</div><div class="b-meta">' +
+    (stale ? '<span class="stale">Stand ' + hm(new Date(rs.lastOk)) + "</span>" : "") + "</div></div>";
+}
+function fadeHint(list) {
+  list.classList.toggle("more", list.scrollHeight > list.clientHeight + 2 && list.scrollTop + list.clientHeight < list.scrollHeight - 2);
+}
+function renderRoutes() {
+  const el = state.routeEl;
+  if (!el) return;
+  const idx = currentRoute();
+  if (idx < 0) return;
+  const feat = el.querySelector(".r-feat"), list = el.querySelector(".r-list");
+  if (!feat || !list) return;
+  renderRouteList(el, list, idx);
+  renderFeatured(el, feat, idx);
+  fadeHint(list);
+}
+/* Scrollbare Liste aller Routen mit jeweils der nächsten Verbindung */
+function renderRouteList(el, list, idx) {
+  const R = state.routes, now = Date.now();
+  el.classList.toggle("has-list", R.length > 1);
+  if (R.length < 2) { list.hidden = true; list.innerHTML = ""; return; }
+  list.hidden = false;
+  list.style.minHeight = (Math.min(R.length, 2.5) * 2.3) + "em";
+  if (state.listBusy && list.childElementCount === R.length) {
+    list.querySelectorAll(".r-row").forEach((b, k) => b.classList.toggle("on", k === idx));
+    return;
+  }
+  const top = list.scrollTop;
+  list.innerHTML = R.map((rs, k) => {
+    const live = rs.journeys.filter((j) => j.leave.getTime() >= now - 30000);
+    const J = live.find((j) => !j.cancelled) || live[0];
+    if (!J && rs.lastOk && now - rs.lastOk > 20000) rs.nextAt = Math.min(rs.nextAt, now);
+    const go = J ? goTxt(J, now) : rs.error && !rs.lastOk ? "keine Daten" : rs.lastOk ? "keine Verbindung" : "lädt …";
+    return '<button class="r-row' + (k === idx ? " on" : "") + '" data-route="' + k + '"><span class="rn">' + esc(rs.cfg.title || "Route") + '</span><span class="chain">' +
+      (J ? chainHtml(J, true) : "") + '</span><span class="rg">' + go + '</span><span class="ra">' + (J ? "an " + hm(J.arrive) : "") + "</span></button>";
+  }).join("");
+  list.scrollTop = top;
+}
+/* Hervorgehobene Route: vom ausführlichsten zum knappsten Aufbau, bis die Karte samt Liste passt */
+function renderFeatured(el, feat, idx) {
+  const rs = state.routes[idx], r = rs.cfg, now = Date.now();
+  const want = clamp(Number(r.results) || 3, 1, 4);
+  const live = rs.journeys.filter((j) => j.leave.getTime() >= now - 30000);
+  if (rs.lastOk && (now - rs.lastOk > 70000 || (live.length < want && now - rs.lastOk > 20000))) rs.nextAt = Math.min(rs.nextAt, now);
+  const head = routeHeadHtml(rs, now);
+  const sub = '<div class="r-sub">' + esc(r.from ? placeShort(r.from) : "Zuhause") + " → " + esc(placeShort(r.to) || "kein Ziel") + "</div>";
+  if (!live.length) {
+    let msg;
+    if (rs.error && !rs.lastOk) msg = rs.error.message && /nicht gefunden|festgelegt/.test(rs.error.message) ? esc(rs.error.message) + "." : "Keine Verbindung zur Fahrplanauskunft. Neuer Versuch läuft automatisch.";
+    else if (!rs.lastOk) msg = "Verbindungen werden geladen …";
+    else msg = "Keine Verbindung gefunden.";
+    feat.innerHTML = head + sub + '<div class="empty">' + msg + "</div>";
+    return;
+  }
+  const notes = mergeNotes(live.slice(0, want).map((j) => j.notes));
+  const first = live.findIndex((j) => !j.cancelled);
+  const warnBtn = notes.length ? '<button class="r-warn" data-src="r" aria-label="' + notes.length + (notes.length === 1 ? " Meldung" : " Meldungen") + ' öffnen">' + NOTE_ICON + notes.length + "</button>" : "";
+  const build = (n, detail, bar, withSub) => {
+    const js = live.slice(0, n);
+    const di = first >= 0 && first < n ? first : -1;
+    return (bar ? head : head.replace('<div class="b-meta">', '<div class="b-meta">' + warnBtn)) + (withSub ? sub : "") +
+      (bar ? '<div class="b-note" role="button" tabindex="0" hidden></div>' : "") +
+      js.map((J, k) => journeyHtml(J, now, k === di ? detail : false)).join("");
+  };
+  const variants = [];
+  for (let n = want; n >= 1; n--) variants.push([n, "legs", true, true]);
+  for (let n = want; n >= 1; n--) variants.push([n, "legs", false, false]);
+  for (let n = want; n >= 1; n--) variants.push([n, "chain", false, false]);
+  for (let n = want; n >= 1; n--) variants.push([n, false, false, false]);
+  for (const [n, d, bar, s] of variants) {
+    feat.innerHTML = build(Math.min(n, live.length), d, bar, s);
+    if (bar) noteBar(feat.querySelector(".b-note"), notes, "r");
+    if (el.scrollHeight <= el.clientHeight + 1) break;
+  }
+}
+
+/* ---------- Meldungen aufklappen ---------- */
+let ovTimer = null;
+function openNotes(src) {
+  let title = "Meldungen", notes = [];
+  if (src === "r") {
+    const idx = currentRoute(), rs = state.routes[idx];
+    if (rs) {
+      title = rs.cfg.title || "Route";
+      notes = mergeNotes(rs.journeys.slice(0, 4).map((j) => j.notes));
+    }
+  } else if (src && src[0] === "b") {
+    const bs = state.boards[Number(src.slice(1))];
+    if (bs) { title = bs.cfg.title || "Tafel"; notes = bs.notes; }
+  }
+  if (!notes.length) return;
+  $("ov-h").textContent = "Meldungen · " + title;
+  $("ov-list").innerHTML = notes.map((n) => '<div class="ov-item">' + NOTE_ICON + "<div>" + (n.head ? "<b>" + esc(n.head) + "</b>" : "") + esc(n.body) + "</div></div>").join("");
+  $("ov").hidden = false;
+  clearTimeout(ovTimer);
+  ovTimer = setTimeout(closeNotes, 90000);
+}
+function closeNotes() { $("ov").hidden = true; clearTimeout(ovTimer); }
+$("ov").addEventListener("click", (ev) => { if (ev.target.id === "ov" || ev.target.id === "ov-x") closeNotes(); });
+
+$("app").addEventListener("click", (ev) => {
+  const tab = ev.target.closest("[data-route]");
+  if (tab) {
+    const k = Number(tab.getAttribute("data-route"));
+    if (state.routes[k]) recordUse(state.routes[k].cfg.id);
+    state.listBusy = false;
+    state.routeSel = k;
+    state.routeSelUntil = Date.now() + 3 * 60000;
+    const rs = state.routes[k];
+    if (rs && Date.now() - rs.lastOk > 30000) rs.nextAt = 0;
+    renderRoutes();
+    pump();
+    return;
+  }
+  const n = ev.target.closest(".b-note, .r-warn");
+  if (n) openNotes(n.getAttribute("data-src"));
+});
+$("app").addEventListener("keydown", (ev) => {
+  if ((ev.key === "Enter" || ev.key === " ") && ev.target.classList && ev.target.classList.contains("b-note")) { ev.preventDefault(); openNotes(ev.target.getAttribute("data-src")); }
+});
 
 /* ---------- Wetter ---------- */
 const BS = "https://api.brightsky.dev";
@@ -718,10 +1324,10 @@ function rain12(radar, hourly, now) {
   return { text, buckets, radarEnd: rad.length ? radarEnd : 0, lastEnd };
 }
 
-function tempChart(hours, now) {
+function tempChart(hours, now, compact) {
   const pts = hours.filter((h) => h.t.getTime() >= now - 3600000).slice(0, 25);
   if (pts.length < 3) return "";
-  const W = 300, H = 112, L = 4, R = 4, T = 20, B = 22;
+  const W = 300, H = compact ? 84 : 112, L = 4, R = 4, T = compact ? 16 : 20, B = compact ? 20 : 22;
   const temps = pts.map((p) => p.temp);
   const lo = Math.min.apply(null, temps), hi = Math.max.apply(null, temps);
   const pad = Math.max(1, (hi - lo) * 0.15);
@@ -748,7 +1354,11 @@ function tempChart(hours, now) {
   svg += '<text class="tv" x="' + x(iMax).toFixed(1) + '" y="' + (y(hi) - 7).toFixed(1) + '" text-anchor="' + anchor(iMax) + '">' + Math.round(hi) + "°</text>";
   if (iMin !== iMax) {
     svg += '<circle class="dt" cx="' + x(iMin).toFixed(1) + '" cy="' + y(lo).toFixed(1) + '" r="2.6"/>';
-    svg += '<text class="tv" x="' + x(iMin).toFixed(1) + '" y="' + (y(lo) + 14).toFixed(1) + '" text-anchor="' + anchor(iMin) + '">' + Math.round(lo) + "°</text>";
+    // Kompakt: Tiefstwert neben den Punkt setzen, sonst kollidiert er mit der Zeitachse
+    const right = iMin > pts.length * 0.7;
+    svg += compact
+      ? '<text class="tv" x="' + (x(iMin) + (right ? -6 : 6)).toFixed(1) + '" y="' + (y(lo) + 3.5).toFixed(1) + '" text-anchor="' + (right ? "end" : "start") + '">' + Math.round(lo) + "°</text>"
+      : '<text class="tv" x="' + x(iMin).toFixed(1) + '" y="' + (y(lo) + 14).toFixed(1) + '" text-anchor="' + anchor(iMin) + '">' + Math.round(lo) + "°</text>";
   }
   svg += "</svg>";
   return svg;
@@ -797,12 +1407,14 @@ function renderWeather() {
 
   // 24 Std.
   if (weather.hourly) {
-    $("w-day").innerHTML = '<div class="lbl">Temperatur · 24 Std.</div>' + tempChart(weather.hourly, now);
+    $("w-day").innerHTML = '<div class="lbl">Temperatur · 24 Std.</div>' + tempChart(weather.hourly, now, !!state.routeEl && state.routeEl.id === "routes" && !matchMedia("(orientation: portrait)").matches);
   }
 
   const ts = [weather.at.now, weather.at.radar].filter(Boolean);
   const stamp = ts.length ? "Wetter Stand " + hm(new Date(Math.min.apply(null, ts))) + "<br>" : "";
   $("src").innerHTML = stamp + "Fahrplan: VBB via transport.rest · Wetter: Deutscher Wetterdienst via Bright Sky";
+  // Höhe der Wetterkarten kann sich geändert haben, die Routenkarte passt sich an
+  renderRoutes();
 }
 
 /* ---------- Uhr & Takt ---------- */
@@ -824,6 +1436,15 @@ async function pump() {
     for (const bs of state.boards) {
       if (Date.now() >= bs.nextAt) { await loadBoard(bs); await new Promise((r) => setTimeout(r, 300)); }
     }
+    if (state.routeEl) {
+      const fi = currentRoute();
+      // Die hervorgehobene Route zuerst, dann die Liste
+      const order = state.routes.map((x, k) => k).sort((a, b) => (b === fi) - (a === fi));
+      for (const k of order) {
+        const rs = state.routes[k];
+        if (Date.now() >= rs.nextAt) { await loadRoute(rs, k === fi); await new Promise((r) => setTimeout(r, 300)); }
+      }
+    }
   } finally { pumping = false; }
 }
 
@@ -831,9 +1452,10 @@ function start() {
   stopAll();
   applyTheme();
   buildBoards();
+  buildRoutes();
   every(1000, tickClock);
   every(5000, pump);
-  every(15000, () => state.boards.forEach(renderBoard));
+  every(15000, () => { state.boards.forEach(renderBoard); renderRoutes(); });
   every(60000, () => { applyTheme(); renderWeather(); });
   every(10 * 60000, loadCurrent);
   every(30 * 60000, loadHourly);
@@ -842,8 +1464,9 @@ function start() {
 }
 
 document.addEventListener("visibilitychange", () => {
-  if (!document.hidden) { state.boards.forEach((b) => { b.nextAt = 0; }); pump(); requestWake(); }
+  if (!document.hidden) { state.boards.forEach((b) => { b.nextAt = 0; }); state.routes.forEach((r) => { r.nextAt = 0; }); pump(); requestWake(); }
 });
+window.addEventListener("resize", () => { clearTimeout(window.__rz); window.__rz = setTimeout(() => { state.boards.forEach(renderBoard); renderRoutes(); }, 200); });
 
 /* Bildschirm wach halten (zusätzlich zu „Automatische Sperre: Nie“) */
 let wake = null;
@@ -862,132 +1485,420 @@ document.addEventListener("click", requestWake, { once: true });
 })();
 
 /* ---------- Einstellungen ---------- */
-let draft = null;
+let draft = null, ui = { tab: "boards", edit: null }, sheetMsg = null;
 const sheet = $("sheet");
-const emptyBoard = () => ({ title: "Neue Tafel", stop: null, via: null, lines: "", products: ["suburban"], walk: 5, count: 8 });
+const searchStore = {}, searchTok = {}, searchTimers = {};
+let lineCache = [], pvTimer = null, pvTok = 0;
+const TABS = [["boards", "Tafeln"], ["routes", "Routen"], ["places", "Orte"], ["look", "Anzeige"], ["backup", "Sichern"]];
+const DAYS = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
+const HOME_ICON = '<svg class="ki" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M4 11 12 4l8 7v9h-5v-6H9v6H4z"/></svg>';
+const PIN_ICON = '<svg class="ki" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>';
+const STOP_ICON = '<span class="ki hs" aria-hidden="true">H</span>';
+const kindIcon = (k) => (k || "stop") === "stop" ? STOP_ICON : k === "address" ? HOME_ICON : PIN_ICON;
+const kindName = (k) => (k || "stop") === "stop" ? "Haltestelle" : k === "address" ? "Adresse" : "Ort";
 
-function refHtml(ref, field, i) {
-  if (!ref) return '<div class="cur">' + (field === "via" ? "Beide Richtungen" : "Noch keine Haltestelle gewählt") + "</div>";
-  return '<div class="cur"><b>' + esc(ref.name) + "</b> " + (ref.id ? "<em>" + esc(ref.id) + "</em>" : "<em>wird beim Start gesucht</em>") +
-    (field === "via" ? ' <button class="btn sm" data-act="clearvia" data-i="' + i + '">Beide Richtungen</button>' : "") + "</div>";
+const emptyBoard = () => ({ title: "Neue Tafel", titleCustom: false, stop: null, via: null, lines: "", products: [], walk: draft.home && draft.home.walk || 5, count: 8 });
+const emptyRoute = () => ({ id: newId(), title: "Neue Route", from: null, to: null, walk: 5, products: ROUTE_PRODUCTS.slice(), results: 3, days: [], start: "", end: "" });
+const curItem = () => ui.edit ? (ui.edit.type === "board" ? draft.boards[ui.edit.i] : draft.routes[ui.edit.i]) : null;
+
+function autoTitle(b) {
+  const custom = b.titleCustom !== undefined ? b.titleCustom : !!(b.title && b.title !== "Neue Tafel");
+  if (custom || !b.stop) return;
+  const L = parseLines(b.lines);
+  b.title = placeShort(b.stop) + (b.via ? " → " + placeShort(b.via) : L.length && L.length <= 3 ? " · " + L.join(" ") : "");
+  const inp = sheet.querySelector('input[data-k="b.title"]');
+  if (inp) inp.value = b.title;
 }
-function edHtml(b, i, n) {
-  const prods = PRODUCTS.map(([p, label]) =>
-    '<label><input type="checkbox" id="p-' + i + "-" + p + '" data-i="' + i + '" data-k="prod" data-p="' + p + '"' + (b.products && b.products.indexOf(p) >= 0 ? " checked" : "") + ">" + label + "</label>").join("");
-  return '<div class="ed">' +
-    '<div class="ed-head"><input type="text" id="t-' + i + '" data-i="' + i + '" data-k="title" value="' + esc(b.title) + '" aria-label="Titel der Tafel">' +
-    '<button class="btn sm" data-act="up" data-i="' + i + '"' + (i === 0 ? " disabled" : "") + ' aria-label="Nach oben">↑</button>' +
-    '<button class="btn sm" data-act="down" data-i="' + i + '"' + (i === n - 1 ? " disabled" : "") + ' aria-label="Nach unten">↓</button>' +
-    '<button class="btn sm danger" data-act="del" data-i="' + i + '">Entfernen</button></div>' +
-    '<div class="fld"><span>Haltestelle</span>' + refHtml(b.stop, "stop", i) +
-    '<div class="pick"><input type="search" id="sq-stop-' + i + '" placeholder="Haltestelle suchen, z. B. Frankfurter Tor"><button class="btn" data-act="search" data-f="stop" data-i="' + i + '">Suchen</button></div>' +
-    '<div class="res" id="sr-stop-' + i + '"></div></div>' +
-    '<div class="fld"><span>Richtung über (optional)</span>' + refHtml(b.via, "via", i) +
-    '<div class="pick"><input type="search" id="sq-via-' + i + '" placeholder="Nächste Station in Fahrtrichtung"><button class="btn" data-act="search" data-f="via" data-i="' + i + '">Suchen</button></div>' +
-    '<div class="res" id="sr-via-' + i + '"></div><small>Zeigt nur Fahrten, die über diese Station fahren. Leer lassen für beide Richtungen.</small></div>' +
-    '<div class="grid2">' +
-    '<label class="fld"><span>Linien (leer = alle)</span><input type="text" id="l-' + i + '" data-i="' + i + '" data-k="lines" value="' + esc(b.lines) + '" placeholder="S3, S5, S7"></label>' +
-    '<label class="fld"><span>Fußweg zur Haltestelle (Min.)</span><input type="number" min="0" max="60" inputmode="numeric" id="w-' + i + '" data-i="' + i + '" data-k="walk" value="' + esc(b.walk) + '"></label>' +
-    '<label class="fld"><span>Mit dem Rad (Min., optional)</span><input type="number" min="0" max="60" inputmode="numeric" id="bk-' + i + '" data-i="' + i + '" data-k="bike" value="' + esc(b.bike == null ? "" : b.bike) + '" placeholder="leer = nur zu Fuß"></label>' +
-    '<label class="fld"><span>Anzahl Abfahrten</span><input type="number" min="1" max="12" inputmode="numeric" id="c-' + i + '" data-i="' + i + '" data-k="count" value="' + esc(b.count) + '"></label>' +
-    "</div>" +
-    '<div class="fld"><span>Verkehrsmittel</span><div class="chk">' + prods + "</div></div></div>";
+function daysTxt(days) {
+  const s = (days || []).slice().sort((a, b) => a - b);
+  if (!s.length) return "";
+  if (s.length === 7) return "täglich";
+  const out = [];
+  for (let i = 0; i < s.length; i++) {
+    let j = i;
+    while (j + 1 < s.length && s[j + 1] === s[j] + 1) j++;
+    out.push(j - i >= 2 ? DAYS[s[i] - 1] + "–" + DAYS[s[j] - 1] : s.slice(i, j + 1).map((d) => DAYS[d - 1]).join(", "));
+    i = j;
+  }
+  return out.join(", ");
 }
-function renderSheet(msg) {
-  const d = draft;
-  const themeOpt = (v, l) => '<label><input type="radio" name="theme" id="th-' + v + '" value="' + v + '"' + (d.theme === v ? " checked" : "") + ">" + l + "</label>";
-  sheet.innerHTML = '<div class="sheet-in">' +
-    '<div class="sheet-bar"><h1 id="sheet-h">Einstellungen</h1><div class="btns"><button class="btn" data-act="cancel">Abbrechen</button><button class="btn pri" data-act="save">Speichern</button></div></div>' +
-    (msg ? '<div class="msg">' + esc(msg) + "</div>" : "") +
-    '<section class="sec"><h2>Abfahrtstafeln</h2>' + d.boards.map((b, i) => edHtml(b, i, d.boards.length)).join("") +
-    '<div class="btns"><button class="btn" data-act="add">Tafel hinzufügen</button></div></section>' +
-    '<section class="sec"><h2>Ort für das Wetter</h2><div class="grid2">' +
-    '<label class="fld"><span>Name</span><input type="text" id="pl-name" data-k="place.name" value="' + esc(d.place.name) + '"></label>' +
-    '<label class="fld"><span>Breitengrad</span><input type="text" inputmode="decimal" id="pl-lat" data-k="place.lat" value="' + esc(d.place.lat) + '"></label>' +
-    '<label class="fld"><span>Längengrad</span><input type="text" inputmode="decimal" id="pl-lon" data-k="place.lon" value="' + esc(d.place.lon) + '"></label></div></section>' +
-    '<section class="sec"><h2>Darstellung</h2><div class="radio">' + themeOpt("auto", "Wie iPad") + themeOpt("light", "Hell") + themeOpt("dark", "Dunkel") + "</div>" +
-    '<label class="chk"><label><input type="checkbox" id="nightdim" data-k="nightDim"' + (d.nightDim ? " checked" : "") + '>Nachts automatisch dunkel und gedimmt (Sonnenuntergang bis Sonnenaufgang)</label></label></section>' +
-    '<section class="sec"><h2>Sichern und übertragen</h2>' +
-    '<div class="fld"><span>Aktuelle Einstellungen</span><textarea id="exp" readonly>' + esc(JSON.stringify(cfg, null, 2)) + "</textarea></div>" +
-    '<div class="btns"><button class="btn" data-act="copy">Kopieren</button></div>' +
-    '<div class="fld"><span>Einstellungen einfügen</span><textarea id="imp" placeholder="Gesicherte Einstellungen hier einfügen"></textarea></div>' +
+function windowTxt(r) {
+  const d = daysTxt(r.days), t = r.start || r.end ? (r.start || "00:00") + "–" + (r.end || "24:00") : "";
+  return [d, t].filter(Boolean).join(" ");
+}
+
+/* Bausteine */
+function locHtml(ref, empty, extra, prefixIcon) {
+  if (!ref) return '<div class="loc empty">' + (prefixIcon || PIN_ICON) + '<span class="nm">' + esc(empty) + "</span>" + (extra || "") + "</div>";
+  const k = ref.kind || "stop";
+  return '<div class="loc">' + (prefixIcon || kindIcon(k)) + '<span class="nm">' + esc(ref.name) + '<br><span class="sub">' + kindName(k) +
+    (k === "stop" && !ref.id ? ", wird beim Laden gesucht" : "") + "</span></span>" + (extra || "") + "</div>";
+}
+function searchBox(sid, kinds, placeholder) {
+  return '<div class="sbox"><input type="search" class="sq" id="sq-' + sid + '" data-sid="' + sid + '" data-kinds="' + kinds + '" placeholder="' + esc(placeholder) +
+    '" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="search"><div class="res" id="sr-' + sid + '"></div></div>';
+}
+const stepLabel = (v, u, z) => (z && (v === "" || v == null || Number(v) === 0)) ? z : (Number(v) || 0) + u;
+function stepper(label, p, val, min, max, unit, zero) {
+  const a = ' data-act="step" data-p="' + p + '" data-min="' + min + '" data-max="' + max + '" data-u="' + unit + '" data-z="' + (zero || "") + '"';
+  return '<div class="stp"><span class="stp-l">' + label + '</span><div class="stp-c"><button type="button"' + a + ' data-d="-1" aria-label="weniger">−</button><output id="o-' + p.replace(".", "-") + '">' +
+    stepLabel(val, unit, zero) + '</output><button type="button"' + a + ' data-d="1" aria-label="mehr">+</button></div></div>';
+}
+function seg(k, val, opts) {
+  return '<div class="seg" role="radiogroup">' + opts.map(([v, l]) => '<button type="button" role="radio" aria-checked="' + (val === v) + '" data-act="seg" data-k="' + k + '" data-v="' + v + '"' + (val === v ? ' class="on"' : "") + ">" + l + "</button>").join("") + "</div>";
+}
+function lineBadges(b) {
+  const L = parseLines(b.lines);
+  if (!L.length) return "<span>alle Linien</span>";
+  const prods = b.products || [];
+  return L.map((n) => '<span class="badge" style="' + badgeStyle({ name: n, product: prods.length === 1 ? prods[0] : guessProduct(n) }) + '">' + esc(n) + "</span>").join("");
+}
+
+/* Listen */
+function boardsTab() {
+  const B = draft.boards;
+  return '<div class="list">' + (B.length ? B.map((b, i) => {
+    const parts = [esc(b.stop ? placeShort(b.stop) : "keine Haltestelle")];
+    if (b.via) parts.push("über " + esc(placeShort(b.via)));
+    parts.push((Number(b.walk) || 0) + " Min.");
+    return '<div class="item"><button class="item-main" data-act="edit" data-t="board" data-i="' + i + '"><span class="tx"><span class="it-t">' + esc(b.title || "Tafel") +
+      '</span><span class="it-s">' + lineBadges(b) + "<span>" + parts.join(" · ") + '</span></span></span><span class="chev">›</span></button>' +
+      '<button class="icon-btn" data-act="mv" data-t="board" data-i="' + i + '" data-d="-1"' + (i === 0 ? " disabled" : "") + ' aria-label="Nach oben">↑</button>' +
+      '<button class="icon-btn" data-act="mv" data-t="board" data-i="' + i + '" data-d="1"' + (i === B.length - 1 ? " disabled" : "") + ' aria-label="Nach unten">↓</button></div>';
+  }).join("") : '<div class="item"><span class="item-main hint">Noch keine Tafel.</span></div>') + "</div>" +
+    '<button class="add" data-act="add" data-t="board">+ Tafel hinzufügen</button>' +
+    '<div class="hint">Antippen zum Bearbeiten. Die Reihenfolge entspricht der Anordnung auf dem Bildschirm, von links oben nach rechts unten.</div>';
+}
+function routesTab() {
+  const R = draft.routes, usage = loadUsage();
+  return '<div class="list">' + (R.length ? R.map((r, i) => {
+    const w = windowTxt(r);
+    const uses = (usage[r.id] || []).length;
+    return '<div class="item"><button class="item-main" data-act="edit" data-t="route" data-i="' + i + '"><span class="tx"><span class="it-t">' + esc(r.title || "Route") +
+      '</span><span class="it-s"><span>' + esc(r.from ? placeShort(r.from) : "Zuhause") + " → " + esc(r.to ? placeShort(r.to) : "kein Ziel") + "</span>" + (w ? "<span>· " + esc(w) + "</span>" : "") +
+      (uses ? "<span>· " + uses + "× gewählt</span>" : "") +
+      '</span></span><span class="chev">›</span></button>' +
+      '<button class="icon-btn" data-act="mv" data-t="route" data-i="' + i + '" data-d="-1"' + (i === 0 ? " disabled" : "") + ' aria-label="Nach oben">↑</button>' +
+      '<button class="icon-btn" data-act="mv" data-t="route" data-i="' + i + '" data-d="1"' + (i === R.length - 1 ? " disabled" : "") + ' aria-label="Nach unten">↓</button></div>';
+  }).join("") : '<div class="item"><span class="item-main hint">Noch keine Route.</span></div>') + "</div>" +
+    '<button class="add" data-act="add" data-t="route">+ Route hinzufügen</button>' +
+    '<section class="sec"><h2>Welche Route groß angezeigt wird</h2><div class="hint">Alle Routen stehen auf dem Bildschirm in einer scrollbaren Liste. Eine davon wird oben ausführlich angezeigt, in dieser Reihenfolge:</div>' +
+    '<div class="hint">1. Die Route, die du gerade angetippt hast (für 3 Minuten).<br>2. Eine Route, deren Zeitfenster gerade passt.<br>3. Die Route, die du zu dieser Tageszeit am häufigsten antippst (werktags und am Wochenende getrennt, ±1,5 Std.).<br>4. Die insgesamt am häufigsten angetippte Route.<br>5. Die erste Route in dieser Liste.</div>' +
+    '<div class="hint">Gezählt wird nur auf diesem iPad, ältere Klicks zählen weniger.</div>' +
+    '<div class="btns"><button class="btn danger" data-act="forget">Gezählte Klicks löschen</button></div></section>';
+}
+function placesTab() {
+  const h = draft.home, p = draft.place;
+  const hasHome = h.place && typeof h.place.lat === "number";
+  return '<section class="sec"><h2>Zuhause</h2>' + locHtml(h.place, "Noch nicht festgelegt", "", h.place ? HOME_ICON : "") +
+    searchBox("home", "sa", "Adresse oder Haltestelle suchen") +
+    ((h.place && (h.place.kind || "stop") === "stop") ? stepper("Zu Fuß bis zur Haltestelle", "home.walk", h.walk, 0, 60, " Min.") : "") +
+    '<div class="hint">Startpunkt für alle Routen. Mit deiner Adresse rechnet die Fahrplanauskunft den Fußweg selbst ein und wählt bei Bedarf eine andere Haltestelle.</div></section>' +
+    '<section class="sec"><h2>Ort für das Wetter</h2><div class="loc">' + PIN_ICON + '<span class="nm">' + esc(p.name) + '<br><span class="sub">' +
+    esc(Number(p.lat).toFixed(4) + ", " + Number(p.lon).toFixed(4)) + "</span></span>" + (hasHome ? '<button class="btn sm" data-act="wxhome">Wie Zuhause</button>' : "") + "</div>" +
+    searchBox("wx", "sa", "Anderen Ort suchen") +
+    '<details><summary>Koordinaten von Hand eingeben</summary><div class="grid2">' +
+    '<label class="fld"><span>Name</span><input type="text" data-k="place.name" value="' + esc(p.name) + '"></label>' +
+    '<label class="fld"><span>Breitengrad</span><input type="text" inputmode="decimal" data-k="place.lat" value="' + esc(p.lat) + '"></label>' +
+    '<label class="fld"><span>Längengrad</span><input type="text" inputmode="decimal" data-k="place.lon" value="' + esc(p.lon) + '"></label></div></details></section>';
+}
+function lookTab() {
+  return '<section class="sec"><h2>Farben</h2>' + seg("theme", draft.theme, [["auto", "Wie iPad"], ["light", "Hell"], ["dark", "Dunkel"]]) +
+    '<label class="tog"><span>Nachts automatisch dunkel und gedimmt<br><span class="hint">Von Sonnenuntergang bis Sonnenaufgang</span></span><input type="checkbox" data-k="nightDim"' + (draft.nightDim ? " checked" : "") + "></label></section>" +
+    '<section class="sec"><h2>Routenkarte</h2>' + seg("routePos", draft.routePos, [["side", "Rechte Spalte"], ["board", "Bei den Tafeln"], ["off", "Aus"]]) +
+    '<div class="hint">„Rechte Spalte“ nutzt den freien Platz unter dem Wetter. „Bei den Tafeln“ gibt der Route eine eigene Kachel neben den Abfahrtstafeln.</div></section>';
+}
+function backupTab() {
+  return '<section class="sec"><h2>Sichern</h2><div class="hint">Die Einstellungen liegen nur auf diesem iPad. Kopiere sie einmal in deine Notizen, falls iPadOS die Websitedaten löscht.</div>' +
+    '<textarea id="exp" readonly>' + esc(JSON.stringify(cfg, null, 2)) + "</textarea>" +
+    '<div class="btns"><button class="btn" data-act="copy">Kopieren</button></div></section>' +
+    '<section class="sec"><h2>Wiederherstellen</h2><textarea id="imp" placeholder="Gesicherte Einstellungen hier einfügen"></textarea>' +
     '<div class="btns"><button class="btn" data-act="import">Übernehmen</button></div></section>' +
-    '<section class="sec"><h2>Erweitert</h2><label class="fld"><span>Adresse der Fahrplan-API</span><input type="text" id="api" data-k="api" value="' + esc(d.api) + '"><small>Nur ändern, wenn du eine eigene vbb-rest-Instanz betreibst.</small></label>' +
-    '<div class="btns"><button class="btn danger" data-act="reset">Auf Standard zurücksetzen</button></div></section></div>';
+    '<section class="sec"><h2>Erweitert</h2><label class="fld"><span>Adresse der Fahrplan-API</span><input type="text" data-k="api" value="' + esc(draft.api) + '"></label>' +
+    '<div class="hint">Nur ändern, wenn du eine eigene vbb-rest-Instanz betreibst.</div>' +
+    '<div class="btns"><button class="btn danger" data-act="reset">Alles auf Standard zurücksetzen</button></div></section>';
 }
-function openSheet() { draft = clone(cfg); renderSheet(); sheet.hidden = false; sheet.scrollTop = 0; }
-function closeSheet() { sheet.hidden = true; sheet.innerHTML = ""; draft = null; }
+
+/* Editoren */
+function boardEditor(i) {
+  const b = draft.boards[i];
+  return '<section class="sec"><label class="fld"><span>Name der Tafel</span><input type="text" data-k="b.title" value="' + esc(b.title) + '"></label></section>' +
+    '<section class="sec"><h2>Haltestelle</h2>' + locHtml(b.stop, "Noch keine Haltestelle gewählt") +
+    searchBox("b-stop", "s", b.stop ? "Andere Haltestelle suchen" : "Haltestelle suchen, z. B. Frankfurter Tor") + "</section>" +
+    '<section class="sec"><h2>Linien</h2><div class="chips" id="lines">' + (b.stop ? '<span class="hint">Linien werden geladen …</span>' : '<span class="hint">Erst eine Haltestelle wählen.</span>') + "</div>" +
+    '<div class="hint">Antippen zum Auswählen. Ohne Auswahl zeigt die Tafel alle Linien.</div></section>' +
+    '<section class="sec"><h2>Richtung</h2>' +
+    (b.via ? locHtml(b.via, "", '<button class="btn sm" data-act="clearvia">Beide Richtungen</button>') : '<div class="loc">' + PIN_ICON + '<span class="nm">Beide Richtungen</span></div>') +
+    searchBox("b-via", "s", "Nur Fahrten über … (Station suchen)") +
+    '<div class="hint">Am zuverlässigsten ist die nächste Station in Fahrtrichtung. Ob es passt, siehst du unten in der Vorschau.</div></section>' +
+    '<section class="sec"><h2>Weg und Umfang</h2>' + stepper("Zu Fuß zur Haltestelle", "b.walk", b.walk, 0, 60, " Min.") +
+    stepper("Mit dem Rad", "b.bike", b.bike, 0, 60, " Min.", "aus") + stepper("Abfahrten auf der Tafel", "b.count", b.count, 1, 12, "") + "</section>" +
+    '<section class="sec"><h2>Vorschau</h2><div id="pv" class="pv"><span class="hint">…</span></div></section>' +
+    '<div class="dz"><button class="btn danger" data-act="delitem">Tafel entfernen</button></div>';
+}
+function routeEditor(i) {
+  const r = draft.routes[i], home = draft.home && draft.home.place;
+  const fromHtml = r.from
+    ? locHtml(r.from, "", '<button class="btn sm" data-act="fromhome">Zuhause</button>') + ((r.from.kind || "stop") === "stop" ? stepper("Zu Fuß zum Start", "r.walk", r.walk, 0, 60, " Min.") : "")
+    : '<div class="loc">' + HOME_ICON + '<span class="nm">Zuhause<br><span class="sub">' + esc(home ? home.name : "noch nicht festgelegt") + "</span></span></div>";
+  const prods = '<div class="chips">' + PRODUCTS.map(([p, l]) => '<button type="button" class="chip' + ((r.products || []).indexOf(p) >= 0 ? " on" : "") + '" data-act="rprod" data-p="' + p + '">' + l + "</button>").join("") + "</div>";
+  const days = '<div class="chips">' + DAYS.map((d, k) => '<button type="button" class="chip' + ((r.days || []).indexOf(k + 1) >= 0 ? " on" : "") + '" data-act="day" data-d="' + (k + 1) + '">' + d + "</button>").join("") + "</div>";
+  return '<section class="sec"><label class="fld"><span>Name der Route</span><input type="text" data-k="r.title" value="' + esc(r.title) + '" placeholder="z. B. Uni"></label></section>' +
+    '<section class="sec"><h2>Start</h2>' + fromHtml + searchBox("r-from", "sap", r.from ? "Anderen Start suchen" : "Anderer Start: Haltestelle, Adresse oder Ort") +
+    '<div class="hint">Zuhause legst du unter „Orte“ fest.</div></section>' +
+    '<section class="sec"><h2>Ziel</h2>' + locHtml(r.to, "Noch kein Ziel gewählt") + searchBox("r-to", "sap", "Ziel suchen: Haltestelle, Adresse oder Ort") + "</section>" +
+    '<section class="sec"><h2>Verkehrsmittel</h2>' + prods + "</section>" +
+    '<section class="sec"><h2>Automatisch zeigen</h2>' + days +
+    '<div class="times"><input type="time" data-k="r.start" value="' + esc(r.start || "") + '" aria-label="von"><span>bis</span><input type="time" data-k="r.end" value="' + esc(r.end || "") + '" aria-label="bis"></div>' +
+    '<div class="hint">Zu diesen Zeiten zeigt die Routenkarte diese Route von selbst, z. B. Mo–Fr 7–11 Uhr. Leer lassen, wenn die Route nur per Antippen erscheinen soll.</div></section>' +
+    '<section class="sec"><h2>Umfang</h2>' + stepper("Verbindungen anzeigen", "r.results", r.results, 1, 4, "") + "</section>" +
+    '<section class="sec"><h2>Vorschau</h2><div id="pv" class="pv-r"><span class="hint">…</span></div></section>' +
+    '<div class="dz"><button class="btn danger" data-act="delitem">Route entfernen</button></div>';
+}
+
+function renderSheet() {
+  let title = "Einstellungen", body, left = "", right;
+  if (ui.edit) {
+    const it = curItem();
+    left = '<button class="btn ghost" data-act="back">‹ ' + (ui.edit.type === "board" ? "Tafeln" : "Routen") + "</button>";
+    title = it ? (it.title || (ui.edit.type === "board" ? "Tafel" : "Route")) : "";
+    right = '<button class="btn pri" data-act="back">Fertig</button>';
+    body = ui.edit.type === "board" ? boardEditor(ui.edit.i) : routeEditor(ui.edit.i);
+  } else {
+    right = '<button class="btn" data-act="cancel">Abbrechen</button><button class="btn pri" data-act="save">Speichern</button>';
+    const tabs = '<div class="tabs" role="tablist">' + TABS.map(([k, l]) => '<button class="tab' + (ui.tab === k ? " on" : "") + '" role="tab" aria-selected="' + (ui.tab === k) + '" data-act="tab" data-tab="' + k + '">' + l + "</button>").join("") + "</div>";
+    const fn = { boards: boardsTab, routes: routesTab, places: placesTab, look: lookTab, backup: backupTab }[ui.tab] || boardsTab;
+    body = tabs + fn();
+  }
+  sheet.innerHTML = '<div class="sheet-in"><div class="sheet-bar"><div class="l">' + left + '<h1 id="sheet-h">' + esc(title) + '</h1></div><div class="btns">' + right + "</div></div>" +
+    (sheetMsg ? '<div class="msg' + (sheetMsg.ok ? " ok" : "") + '">' + esc(sheetMsg.text) + "</div>" : "") + body + "</div>";
+  sheetMsg = null;
+  if (ui.edit && ui.edit.type === "board") loadLineChips();
+  if (ui.edit) schedulePreview(0);
+}
+function openSheet() { draft = clone(cfg); ui = { tab: ui.tab || "boards", edit: null }; renderSheet(); sheet.hidden = false; sheet.scrollTop = 0; }
+function closeSheet() { sheet.hidden = true; sheet.innerHTML = ""; draft = null; ui.edit = null; }
+function go(next) { ui = Object.assign({}, ui, next); renderSheet(); sheet.scrollTop = 0; }
+
+/* Liniensuche an der Haltestelle */
+async function loadLineChips() {
+  const e = ui.edit;
+  if (!e || e.type !== "board") return;
+  const b = draft.boards[e.i];
+  if (!b.stop) return;
+  try {
+    const id = await resolveStop(b.stop, b.products, draft.api);
+    const st = await getJSON(draft.api + "/stops/" + encodeURIComponent(id) + "?linesOfStops=true&language=de&pretty=false");
+    if (!ui.edit || draft.boards[e.i] !== b || !$("lines")) return;
+    const order = PRODUCTS.map(([p]) => p), seen = {};
+    lineCache = [];
+    (st.lines || []).forEach((l) => { const n = normLine(l.name); if (n && !seen[n]) { seen[n] = 1; lineCache.push({ name: l.name, n, product: l.product }); } });
+    parseLines(b.lines).forEach((n) => { if (!seen[n]) { seen[n] = 1; lineCache.push({ name: n, n, product: guessProduct(n) }); } });
+    lineCache.sort((a, c) => (order.indexOf(a.product) - order.indexOf(c.product)) || a.n.localeCompare(c.n, "de", { numeric: true }));
+    renderLineChips(b);
+  } catch (err) {
+    const host = $("lines");
+    if (host) host.innerHTML = '<span class="hint err">Linien konnten nicht geladen werden. Du kannst sie von Hand eintragen:</span>' +
+      '<input type="text" data-k="b.lines" value="' + esc(b.lines) + '" placeholder="S3, S5, M10">';
+  }
+}
+function renderLineChips(b) {
+  const host = $("lines");
+  if (!host) return;
+  const sel = parseLines(b.lines);
+  host.innerHTML = lineCache.length ? lineCache.map((l) => '<button type="button" class="lchip' + (sel.indexOf(l.n) >= 0 ? " on" : "") + '" data-act="line" data-l="' + esc(l.n) + '" aria-pressed="' + (sel.indexOf(l.n) >= 0) + '">' +
+    badgeHtml({ name: l.name, product: l.product }) + "</button>").join("") : '<span class="hint">An dieser Haltestelle wurden keine Linien gefunden.</span>';
+}
+
+/* Vorschau im Editor */
+function schedulePreview(ms) { clearTimeout(pvTimer); pvTimer = setTimeout(runPreview, ms == null ? 400 : ms); }
+async function runPreview() {
+  const e = ui.edit, host = $("pv");
+  if (!e || !host) return;
+  const tok = ++pvTok;
+  if (e.type === "board") {
+    const b = draft.boards[e.i];
+    if (!b.stop) { host.innerHTML = '<span class="hint">Erst eine Haltestelle wählen.</span>'; return; }
+    host.innerHTML = '<span class="hint">Abfahrten werden geladen …</span>';
+    try {
+      const id = await resolveStop(b.stop, b.products, draft.api);
+      const via = b.via ? await resolveStop(b.via, null, draft.api) : null;
+      const deps = (await fetchDeps(b, id, via, 90, 40, draft.api)).filter((d) => d.t.getTime() > Date.now() - 30000).slice(0, 6);
+      if (tok !== pvTok || !$("pv")) return;
+      host.innerHTML = deps.length ? deps.map((d) => "<span>" + badgeHtml(d.line) + '</span><span class="dest">' + esc(cleanDestFor(d.dest, d.line.name)) + '</span><span class="time">' + hm(d.cancelled && d.planned ? d.planned : d.t) + "</span>").join("")
+        : '<span class="hint">Keine Abfahrten mit diesen Einstellungen in den nächsten 90 Minuten. Prüfe Linien und Richtung.</span>';
+    } catch (err) {
+      if (tok === pvTok && $("pv")) host.innerHTML = '<span class="hint err">' + esc(err && err.message && err.message.indexOf("nicht gefunden") >= 0 ? err.message : "Vorschau nicht verfügbar, keine Verbindung zur Fahrplanauskunft.") + "</span>";
+    }
+  } else {
+    const r = draft.routes[e.i];
+    if (!r.to) { host.innerHTML = '<span class="hint">Erst ein Ziel wählen.</span>'; return; }
+    host.innerHTML = '<span class="hint">Verbindungen werden gesucht …</span>';
+    try {
+      const js = await fetchJourneys(r, draft.home, draft.api, 3);
+      if (tok !== pvTok || !$("pv")) return;
+      const now = Date.now();
+      host.innerHTML = js.length ? js.slice(0, 3).map((J, k) => journeyHtml(J, now, k === 0 ? "legs" : false)).join("") : '<span class="hint">Keine Verbindung gefunden.</span>';
+    } catch (err) {
+      if (tok === pvTok && $("pv")) host.innerHTML = '<span class="hint err">' + esc(err && err.message && /nicht gefunden|festgelegt/.test(err.message) ? err.message : "Vorschau nicht verfügbar, keine Verbindung zur Fahrplanauskunft.") + "</span>";
+    }
+  }
+}
+
+/* Live-Suche */
+async function runSearch(sid, q, kinds) {
+  const out = $("sr-" + sid);
+  if (!out) return;
+  if (q.length < 2) { out.innerHTML = ""; return; }
+  const tok = (searchTok[sid] = (searchTok[sid] || 0) + 1);
+  out.innerHTML = '<div class="hint">Suche …</div>';
+  try {
+    const list = await searchLocations(q, kinds, draft.api);
+    if (tok !== searchTok[sid] || !$("sr-" + sid)) return;
+    searchStore[sid] = list;
+    out.innerHTML = list.length ? list.map((x, k) => '<button type="button" class="hit" data-act="pickloc" data-sid="' + sid + '" data-k="' + k + '">' + kindIcon(x.kind) +
+      '<span class="h-n">' + esc(x.name) + '</span><span class="h-p">' + esc(x.info || "") + "</span></button>").join("") : '<div class="hint">Nichts gefunden.</div>';
+  } catch (e) {
+    if (tok === searchTok[sid] && $("sr-" + sid)) out.innerHTML = '<div class="hint err">Suche fehlgeschlagen. Verbindung prüfen und erneut versuchen.</div>';
+  }
+}
+function applyPick(sid, x) {
+  const ref = { kind: x.kind, id: x.id, name: x.name, lat: x.lat, lon: x.lon };
+  const it = curItem();
+  if (sid === "b-stop") {
+    if (!it.stop || it.stop.id !== ref.id) { it.lines = ""; it.products = []; }
+    it.stop = ref; autoTitle(it);
+  } else if (sid === "b-via") { it.via = ref; autoTitle(it); }
+  else if (sid === "r-from") { it.from = ref; if (it.walk == null) it.walk = 5; }
+  else if (sid === "r-to") { it.to = ref; if (!it.title || it.title === "Neue Route") it.title = placeShort(ref); }
+  else if (sid === "home") draft.home.place = ref;
+  else if (sid === "wx") draft.place = { name: placeShort(ref), lat: ref.lat, lon: ref.lon };
+  renderSheet();
+}
 
 sheet.addEventListener("input", (ev) => {
-  const t = ev.target, k = t.getAttribute("data-k");
+  const t = ev.target;
   if (!draft) return;
-  if (t.name === "theme") { draft.theme = t.value; return; }
-  if (!k) return;
-  const i = t.getAttribute("data-i");
-  if (i !== null) {
-    const b = draft.boards[Number(i)];
-    if (k === "prod") {
-      const p = t.getAttribute("data-p");
-      b.products = (b.products || []).filter((x) => x !== p);
-      if (t.checked) b.products.push(p);
-      if (b.stop) b.stop.id = b.stop.id; // Haltestelle bleibt
-    } else if (k === "walk" || k === "count" || k === "bike") b[k] = t.value === "" ? "" : Number(t.value);
-    else b[k] = t.value;
-  } else if (k === "nightDim") draft.nightDim = t.checked;
+  if (t.classList.contains("sq")) {
+    const sid = t.getAttribute("data-sid");
+    clearTimeout(searchTimers[sid]);
+    searchTimers[sid] = setTimeout(() => runSearch(sid, t.value.trim(), t.getAttribute("data-kinds")), 300);
+    return;
+  }
+  const k = t.getAttribute("data-k");
+  if (!k || t.type === "checkbox") return;
+  const it = curItem();
+  if (k === "b.title") { it.title = t.value; it.titleCustom = true; }
+  else if (k === "b.lines") { it.lines = t.value; schedulePreview(); }
+  else if (k === "r.title") it.title = t.value;
+  else if (k === "r.start" || k === "r.end") it[k.slice(2)] = t.value;
   else if (k === "api") draft.api = t.value.trim().replace(/\/+$/, "");
   else if (k.indexOf("place.") === 0) draft.place[k.slice(6)] = t.value;
 });
-sheet.addEventListener("change", (ev) => { if (ev.target.name === "theme" && draft) draft.theme = ev.target.value; });
+sheet.addEventListener("change", (ev) => {
+  const t = ev.target;
+  if (draft && t.getAttribute("data-k") === "nightDim") draft.nightDim = t.checked;
+});
 
 sheet.addEventListener("click", async (ev) => {
   const btn = ev.target.closest("button[data-act]");
   if (!btn || !draft) return;
   const act = btn.getAttribute("data-act"), i = Number(btn.getAttribute("data-i"));
-  const B = draft.boards;
+  const it = curItem();
   if (act === "cancel") closeSheet();
+  else if (act === "tab") go({ tab: btn.getAttribute("data-tab"), edit: null });
+  else if (act === "edit") go({ edit: { type: btn.getAttribute("data-t"), i } });
+  else if (act === "back") go({ edit: null });
+  else if (act === "add") {
+    const t = btn.getAttribute("data-t");
+    if (t === "board") { draft.boards.push(emptyBoard()); go({ edit: { type: "board", i: draft.boards.length - 1 } }); }
+    else { draft.routes.push(emptyRoute()); go({ edit: { type: "route", i: draft.routes.length - 1 } }); }
+  }
+  else if (act === "mv") {
+    const L = btn.getAttribute("data-t") === "board" ? draft.boards : draft.routes, j = i + Number(btn.getAttribute("data-d"));
+    if (j >= 0 && j < L.length) { [L[i], L[j]] = [L[j], L[i]]; renderSheet(); }
+  }
+  else if (act === "delitem") {
+    if (btn.classList.contains("armed")) {
+      (ui.edit.type === "board" ? draft.boards : draft.routes).splice(ui.edit.i, 1);
+      go({ edit: null });
+    } else {
+      const label = btn.textContent;
+      btn.classList.add("armed"); btn.textContent = "Wirklich entfernen?";
+      setTimeout(() => { if (btn.isConnected) { btn.classList.remove("armed"); btn.textContent = label; } }, 4000);
+    }
+  }
+  else if (act === "pickloc") {
+    const x = (searchStore[btn.getAttribute("data-sid")] || [])[Number(btn.getAttribute("data-k"))];
+    if (x) applyPick(btn.getAttribute("data-sid"), x);
+  }
+  else if (act === "clearvia") { it.via = null; autoTitle(it); renderSheet(); }
+  else if (act === "fromhome") { it.from = null; renderSheet(); }
+  else if (act === "wxhome") { const h = draft.home.place; draft.place = { name: placeShort(h), lat: h.lat, lon: h.lon }; renderSheet(); }
+  else if (act === "step") {
+    const p = btn.getAttribute("data-p"), [scope, key] = p.split(".");
+    const obj = scope === "home" ? draft.home : it;
+    const v = clamp((Number(obj[key]) || 0) + Number(btn.getAttribute("data-d")), Number(btn.getAttribute("data-min")), Number(btn.getAttribute("data-max")));
+    obj[key] = key === "bike" && v === 0 ? "" : v;
+    const out = $("o-" + p.replace(".", "-"));
+    if (out) out.textContent = stepLabel(obj[key], btn.getAttribute("data-u"), btn.getAttribute("data-z"));
+  }
+  else if (act === "line") {
+    const n = btn.getAttribute("data-l");
+    let sel = parseLines(it.lines);
+    sel = sel.indexOf(n) >= 0 ? sel.filter((x) => x !== n) : sel.concat(n);
+    const order = lineCache.map((l) => l.n);
+    sel.sort((a, c) => order.indexOf(a) - order.indexOf(c));
+    it.lines = sel.join(", ");
+    const prods = [];
+    sel.forEach((s) => { const l = lineCache.find((x) => x.n === s); const p = l ? l.product : guessProduct(s); if (p && prods.indexOf(p) < 0) prods.push(p); });
+    it.products = sel.length ? prods : [];
+    btn.classList.toggle("on", sel.indexOf(n) >= 0);
+    btn.setAttribute("aria-pressed", String(sel.indexOf(n) >= 0));
+    autoTitle(it);
+    schedulePreview();
+  }
+  else if (act === "rprod") {
+    const p = btn.getAttribute("data-p");
+    it.products = (it.products || []).indexOf(p) >= 0 ? it.products.filter((x) => x !== p) : (it.products || []).concat(p);
+    btn.classList.toggle("on", it.products.indexOf(p) >= 0);
+    schedulePreview(800);
+  }
+  else if (act === "day") {
+    const d = Number(btn.getAttribute("data-d"));
+    it.days = (it.days || []).indexOf(d) >= 0 ? it.days.filter((x) => x !== d) : (it.days || []).concat(d).sort((a, c) => a - c);
+    btn.classList.toggle("on", it.days.indexOf(d) >= 0);
+  }
+  else if (act === "seg") {
+    draft[btn.getAttribute("data-k")] = btn.getAttribute("data-v");
+    btn.parentNode.querySelectorAll("button").forEach((b) => { const on = b === btn; b.classList.toggle("on", on); b.setAttribute("aria-checked", String(on)); });
+  }
   else if (act === "save") {
     const lat = parseFloat(String(draft.place.lat).replace(",", ".")), lon = parseFloat(String(draft.place.lon).replace(",", "."));
-    if (!(lat > 47 && lat < 56 && lon > 5 && lon < 16)) { renderSheet("Breiten- und Längengrad passen nicht zu Deutschland. Beispiel: 52.5106 und 13.4545."); return; }
+    if (!(lat > 47 && lat < 56 && lon > 5 && lon < 16)) { sheetMsg = { text: "Der Ort für das Wetter liegt nicht in Deutschland. Bitte unter „Orte“ neu suchen." }; go({ tab: "places", edit: null }); return; }
     draft.place.lat = lat; draft.place.lon = lon;
-    B.forEach((b) => {
-      b.walk = Math.max(0, Math.min(60, Number(b.walk) || 0));
-      b.bike = b.bike === "" || b.bike == null || isNaN(Number(b.bike)) ? "" : Math.max(0, Math.min(60, Number(b.bike)));
-      b.count = Math.max(1, Math.min(12, Number(b.count) || 6));
+    const badB = draft.boards.findIndex((b) => !b.stop);
+    if (badB >= 0) { sheetMsg = { text: "Diese Tafel braucht noch eine Haltestelle." }; go({ tab: "boards", edit: { type: "board", i: badB } }); return; }
+    const badR = draft.routes.findIndex((r) => !r.to);
+    if (badR >= 0) { sheetMsg = { text: "Diese Route braucht noch ein Ziel." }; go({ tab: "routes", edit: { type: "route", i: badR } }); return; }
+    draft.boards.forEach((b) => {
+      b.walk = clamp(Number(b.walk) || 0, 0, 60);
+      b.bike = b.bike === "" || b.bike == null || isNaN(Number(b.bike)) || Number(b.bike) <= 0 ? "" : clamp(Number(b.bike), 1, 60);
+      b.count = clamp(Number(b.count) || 6, 1, 12);
+      if (!String(b.title || "").trim()) b.title = placeShort(b.stop);
     });
-    const missing = B.findIndex((b) => !b.stop);
-    if (missing >= 0) { renderSheet("Tafel " + (missing + 1) + " hat noch keine Haltestelle."); return; }
-    cfg = draft; saveConfig(cfg); closeSheet();
-    weather.now = weather.hourly = weather.radar = weather.alerts = null;
+    draft.routes.forEach((r) => {
+      r.results = clamp(Number(r.results) || 3, 1, 4);
+      r.walk = clamp(Number(r.walk) || 0, 0, 60);
+      if (!String(r.title || "").trim()) r.title = placeShort(r.to) || "Route";
+      if (!r.products || !r.products.length) r.products = ROUTE_PRODUCTS.slice();
+    });
+    draft.home.walk = clamp(Number(draft.home.walk) || 0, 0, 60);
+    const placeChanged = draft.place.lat !== cfg.place.lat || draft.place.lon !== cfg.place.lon;
+    cfg = normalizeConfig(draft); saveConfig(cfg); closeSheet();
+    if (placeChanged) { weather.now = weather.hourly = weather.radar = weather.alerts = null; }
+    state.routeSel = null;
     start();
-  }
-  else if (act === "add") { B.push(emptyBoard()); renderSheet(); }
-  else if (act === "up" && i > 0) { [B[i - 1], B[i]] = [B[i], B[i - 1]]; renderSheet(); }
-  else if (act === "down" && i < B.length - 1) { [B[i + 1], B[i]] = [B[i], B[i + 1]]; renderSheet(); }
-  else if (act === "del") {
-    if (btn.classList.contains("armed")) { B.splice(i, 1); renderSheet(); }
-    else { btn.classList.add("armed"); btn.textContent = "Wirklich entfernen?"; setTimeout(() => { if (btn.isConnected) { btn.classList.remove("armed"); btn.textContent = "Entfernen"; } }, 4000); }
-  }
-  else if (act === "clearvia") { B[i].via = null; renderSheet(); }
-  else if (act === "search") {
-    const f = btn.getAttribute("data-f");
-    const q = ($("sq-" + f + "-" + i).value || "").trim();
-    const out = $("sr-" + f + "-" + i);
-    if (q.length < 2) { out.innerHTML = '<span class="cur">Bitte mindestens zwei Zeichen eingeben.</span>'; return; }
-    out.innerHTML = '<span class="cur">Suche läuft …</span>';
-    try {
-      const list = await getJSON(draft.api + "/locations?query=" + encodeURIComponent(q) + "&results=8&poi=false&addresses=false&linesOfStops=false&language=de");
-      const stops = (Array.isArray(list) ? list : []).filter((x) => x && (x.type === "stop" || x.type === "station"));
-      if (!stops.length) { out.innerHTML = '<span class="cur">Keine Haltestelle gefunden.</span>'; return; }
-      out.innerHTML = stops.map((s) => {
-        const p = PRODUCTS.filter(([k]) => s.products && s.products[k]).map(([, l]) => l).join(", ");
-        return '<button class="btn" data-act="pick" data-f="' + f + '" data-i="' + i + '" data-id="' + esc(s.id) + '" data-name="' + esc(s.name) + '">' + esc(s.name) + '<span class="p">' + esc(p) + "</span></button>";
-      }).join("");
-    } catch (e) { out.innerHTML = '<span class="cur">Suche fehlgeschlagen. Verbindung prüfen und erneut versuchen.</span>'; }
-  }
-  else if (act === "pick") {
-    const f = btn.getAttribute("data-f");
-    B[i][f] = { id: btn.getAttribute("data-id"), name: btn.getAttribute("data-name") };
-    renderSheet();
   }
   else if (act === "copy") {
     const ta = $("exp");
@@ -998,12 +1909,17 @@ sheet.addEventListener("click", async (ev) => {
     try {
       const c = JSON.parse($("imp").value);
       if (!c || !Array.isArray(c.boards)) throw new Error();
-      draft = Object.assign(clone(DEFAULTS), c);
-      renderSheet("Einstellungen eingelesen. Mit „Speichern“ übernehmen.");
-    } catch (e) { renderSheet("Das eingefügte Format ist nicht lesbar. Bitte den kompletten Text aus „Aktuelle Einstellungen“ einfügen."); }
+      draft = normalizeConfig(c);
+      sheetMsg = { text: "Einstellungen eingelesen. Mit „Speichern“ übernehmen.", ok: true };
+    } catch (e) { sheetMsg = { text: "Das eingefügte Format ist nicht lesbar. Bitte den kompletten gesicherten Text einfügen." }; }
+    renderSheet();
+  }
+  else if (act === "forget") {
+    if (btn.classList.contains("armed")) { try { localStorage.removeItem(UKEY); } catch (e) {} sheetMsg = { text: "Gezählte Klicks gelöscht.", ok: true }; renderSheet(); }
+    else { btn.classList.add("armed"); btn.textContent = "Wirklich löschen?"; }
   }
   else if (act === "reset") {
-    if (btn.classList.contains("armed")) { draft = clone(DEFAULTS); renderSheet("Standard geladen. Mit „Speichern“ übernehmen."); }
+    if (btn.classList.contains("armed")) { draft = clone(DEFAULTS); sheetMsg = { text: "Standard geladen. Mit „Speichern“ übernehmen.", ok: true }; go({ tab: "boards", edit: null }); }
     else { btn.classList.add("armed"); btn.textContent = "Wirklich zurücksetzen?"; }
   }
 });
